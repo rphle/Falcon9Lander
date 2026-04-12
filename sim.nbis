@@ -443,7 +443,7 @@ draw_explosion!() = {
 # ==============================
 
 main!() = {
-    global rckt, particles, started, crashed, landed, idle_time, wind_time, wind_speed, last_time, actual_fps, fade_time
+    global rckt, particles, started, crashed, landed, idle_time, wind_time, wind_speed, last_time, actual_fps, fade_time, crash_time
 
     while not graphics.quit_requested() do {
         # Process Input
@@ -678,6 +678,8 @@ main!() = {
         } else {
             draw_explosion()
         }
+
+        if crash_time == 0.0 and crashed then graphics.play_sound("boom.wav")
 
         # Render Exhaust Particles
         for p in particles do {
