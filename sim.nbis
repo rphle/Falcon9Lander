@@ -25,6 +25,7 @@ FPS = 60
 DT = 1.0 / FPS -> s # Physics time step
 SCALE = 0.4m
 INACTIVITY_COOLDOWN = 10 s # Time before resetting to title screen after no input
+INVERT = false
 
 # Screen dimensions in pixels and meters
 SCREEN_WIDTH = 980
@@ -255,7 +256,7 @@ update_time!(action_received: Bool) = {
     if fade_time > 0.0 s then {
         fade_time = math.max(0.0 s, fade_time - real_dt) -> s
     }
-    if crashed or landed then {
+    if crashed then {
         crash_time = crash_time + DT
     }
 }
@@ -448,8 +449,8 @@ main!() = {
     while not graphics.quit_requested() do {
         # Process Input
         rckt.engine_on = graphics.key_pressed("Up")
-        rckt.rcs_left = graphics.key_pressed("Left")
-        rckt.rcs_right = graphics.key_pressed("Right")
+        rckt.rcs_left = if INVERT then graphics.key_pressed("Right") else graphics.key_pressed("Left") 
+        rckt.rcs_right = if INVERT then graphics.key_pressed("Left") else graphics.key_pressed("Right") 
         action_received = rckt.engine_on or rckt.rcs_left or rckt.rcs_right or graphics.key_pressed("Space")
 
         if graphics.key_pressed("Space") then {
