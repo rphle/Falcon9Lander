@@ -26,6 +26,7 @@ DT = 1.0 / FPS -> s # Physics time step
 SCALE = 0.4m
 INACTIVITY_COOLDOWN = 10 s # Time before resetting to title screen after no input
 INVERT = false
+AUTOZOOM = true
 
 # Screen dimensions in pixels and meters
 SCREEN_WIDTH = 980
@@ -517,8 +518,15 @@ main!() = {
         # ==============================
         # -- RENDERING --
         # ==============================
-        graphics.set_scale(SCALE)
-        graphics.set_origin(SCREEN_WIDTH_M / 2, SCREEN_HEIGHT_M)
+        if AUTOZOOM then {
+            dist = math.sqrt(rckt.x^2 + (platform.y - rckt.y)^2) -> m
+            view_height = math.max(240.0, math.min(SCREEN_HEIGHT_M, dist + 150m)) 
+            graphics.set_scale(view_height, SCREEN_HEIGHT)
+            graphics.set_origin(SCREEN_WIDTH / 2, SCREEN_HEIGHT)
+        } else {
+            graphics.set_scale(SCALE)
+            graphics.set_origin(SCREEN_WIDTH / 2, SCREEN_HEIGHT)    
+        }
 
         # Sky
         band_h = SCREEN_HEIGHT_M / sky_colors.len()
