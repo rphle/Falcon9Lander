@@ -3,4 +3,5 @@
 
 # Unignore all with nbis extension
 !*.nbis
+!*.wav
 !.gitignore
