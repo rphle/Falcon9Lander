@@ -527,11 +527,13 @@ main!() = {
             dist = math.sqrt(rckt.x^2 + (platform.y - rckt.y)^2) -> m
             view_height = math.max(240.0, math.min(SCREEN_HEIGHT_M, dist + 150m)) 
             graphics.set_scale(view_height, SCREEN_HEIGHT)
-            graphics.set_origin(SCREEN_WIDTH / 2, SCREEN_HEIGHT)
         } else {
             graphics.set_scale(SCALE)
-            graphics.set_origin(SCREEN_WIDTH / 2, SCREEN_HEIGHT)    
         }
+        shake = if rckt.engine_on then random.uniform(-1, 1) else 
+                if crashed and crash_time < 1s then random.uniform(-7, 7) else 0
+        graphics.set_origin(SCREEN_WIDTH / 2 + shake, SCREEN_HEIGHT + shake)
+
 
         # Sky
         band_h = SCREEN_HEIGHT_M / sky_colors.len()
