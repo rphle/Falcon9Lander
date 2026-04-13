@@ -256,7 +256,7 @@ update_time!(action_received: Bool) = {
     if fade_time > 0.0 s then {
         fade_time = math.max(0.0 s, fade_time - real_dt) -> s
     }
-    if crashed then {
+    if crashed or landed then {
         crash_time = crash_time + DT
     }
 }
