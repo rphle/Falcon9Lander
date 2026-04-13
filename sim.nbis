@@ -488,10 +488,15 @@ main!() = {
         by = rckt.y + math.cos(rckt.angle) * (ROCKET_HEIGHT / 2)
 
         # Boundary Check: Crash if falling off the sides of the world
-        if math.abs(rckt.x) > SCREEN_WIDTH_M / 2 then { crashed = true; }
+        if math.abs(rckt.x) > SCREEN_WIDTH_M / 2 + ROCKET_RADIUS then { crashed = true; }
 
         if not landed and not crashed and by >= platform.y then {
-            on_pad = (platform.x <= bx <= platform.x + platform.w)
+            base_span = ROCKET_RADIUS * math.cos(rckt.angle)
+            left_edge = bx - base_span
+            right_edge = bx + base_span
+            
+            on_pad = (platform.x <= left_edge) and (right_edge <= platform.x + platform.w)
+
 
             if (
                 on_pad
