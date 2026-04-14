@@ -215,7 +215,7 @@ score_landing!() = {
     fuel_score = (rckt.fuel / INITIAL_FUEL -> 1) * 2.25
     pos_score = math.max(0.0, 1.0 - (rckt.x / 30 -> 1))
     landing = v_speed_score * 20 + h_speed_score * 20 + angle_score * 15 + pos_score * 10 + omega_score * 10
-    rest = fuel_score * 15 + time_score * 10
+    rest = fuel_score * 15 + time_score * 20
 
     score = math.round(rest * 10)
     landing_bonus = math.round(landing * 10)
@@ -384,7 +384,8 @@ draw_telemetry!(alt: Length) = {
         } else {
             graphics.text(banner_x + offset, banner_y + offset, "MISSION FAILED", size=36, color="#ff3333")
         }
-        graphics.text(banner_x + offset, banner_y + 45 + offset, "PRESS SPACE TO RESTART — SCORE: " + ((score + landing_bonus) -> Str), size=16, color="#aaaaaa")
+        score_text = if landed then " — SCORE: " + ((score + landing_bonus) -> Str) else ""
+        graphics.text(banner_x + offset, banner_y + 45 + offset, "PRESS SPACE TO RESTART" + score_text, size=16, color="#aaaaaa")
     }
 }
 
