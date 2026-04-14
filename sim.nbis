@@ -322,6 +322,29 @@ draw_telemetry!(alt: Length) = {
         graphics.text(hud_x, hud_y, metrics[i], size=16, color=color)
     }
 
+    # Crash indicator
+    if math.abs(rckt.y) < SCREEN_HEIGHT_M/4 and 
+        (rckt.vy > MAX_LANDING_SPEED_Y
+        or math.abs(rckt.vx) > MAX_LANDING_SPEED_X
+        or math.abs(rckt.angle) >MAX_LANDING_ANGLE
+        or math.abs(rckt.omega) > MAX_ROTATION_SPEED)
+    then {
+        warning_x = SCREEN_WIDTH / 2
+        warning_y = SCREEN_HEIGHT / 2
+        tri_w = 35.0  
+        tri_h = 55.0 
+        border = 7.0 
+        c_warn = "#d61818"
+
+        # Triangle
+        graphics.polygon([warning_x, warning_y, warning_x - tri_w, warning_y + tri_h, warning_x + tri_w, warning_y + tri_h], color=c_warn)
+        graphics.polygon([warning_x, warning_y + (border * 1.5), warning_x - (tri_w - border*1.5), warning_y + tri_h - border, warning_x + (tri_w - border*1.5), warning_y + tri_h - border], color="#ffffff")
+
+        # !
+        graphics.rect(warning_x - 2, warning_y + 18, 4, 18, color=c_warn) 
+        graphics.rect(warning_x - 2, warning_y + 40, 4, 4, color=c_warn)  
+    }
+
     # Final Status Text Banner
     if landed or crashed then {
         banner_w = if landed then 450 else 350
