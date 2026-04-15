@@ -1,0 +1,71 @@
+from si import *
+
+DRY_MASS = 22200.0 kg # (Stage 1 empty)
+INITIAL_FUEL = 6000.0 kg  # (Fuel remaining for landing burn)
+ROCKET_HEIGHT = 47.0 m
+ROCKET_RADIUS = 1.83 m
+ENGINE_THRUST = 845000.0 N  # (1x Merlin 1D Engine, throttled approx 100%)
+RCS_TORQUE = 600000.0 N*m  # (Cold gas thrusters + grid fins approx)
+ISP = 282.0 s  # Specific Impulse at sea level
+FUEL_DENSITY = 0.81 kg/L # Kerosine
+
+# Environment
+GRAVITY = 9.81 m/s^2
+AIR_DENSITY = 1.225 kg/m^3 # (Sea level)
+DRAG_COEFF_BASE = 1.5  # Drag coefficient falling engine-first
+DRAG_COEFF_SIDE = 2.1  # Drag coefficient falling sideways
+
+# Game Settings
+FPS = 5
+DT = 1.0 / FPS -> s # Physics time step
+SCALE = 0.4m
+INACTIVITY_COOLDOWN = 10 s # Time before resetting to title screen after no input
+INVERT = false
+AUTOZOOM = true
+
+# Screen dimensions in pixels and meters
+SCREEN_WIDTH = 980
+SCREEN_HEIGHT = 980
+SCREEN_WIDTH_M = SCREEN_WIDTH * SCALE
+SCREEN_HEIGHT_M = SCREEN_HEIGHT * SCALE
+PLATFORM_WIDTH = 60.0 m
+
+# Landing Constraints
+MAX_LANDING_SPEED_Y = 12.0 m/s
+MAX_LANDING_SPEED_X = 5.0 m/s
+MAX_LANDING_ANGLE = 10.0°
+MAX_ROTATION_SPEED = 10.0°/s
+
+# =========================================00
+
+# Drive rocket to target angle, damp spin
+ATTITUDE_KP = 3.2 rad^(-1)
+ATTITUDE_KD = 2.2 s*rad^(-1)
+
+# Lateral correction: desired lean = KP*x_error + KD*vx
+# Used in Phase 1/2. In Phase 3 we switch to direct RCS-only correction.
+LATERAL_KP = 0.018 m^(-1)
+LATERAL_KD = 0.060 s*m^(-1)
+
+# Max lean angles per phase
+AUTOPILOT_MAX_LEAN_COARSE = 22.0°
+AUTOPILOT_MAX_LEAN_BURN   = 12.0°
+AUTOPILOT_MAX_LEAN_FINAL  =  5.0°
+
+# Phase altitudes
+PHASE_BURN_ALT  = 80.0 m
+PHASE_FINAL_ALT = 20.0 m
+
+# RCS deadbands per phase (smaller = more active correction)
+RCS_DEADBAND_COARSE = 0.40 rad^(-1)
+RCS_DEADBAND_BURN   = 0.25 rad^(-1)
+RCS_DEADBAND_FINAL  = 0.10 rad^(-1)
+
+# Burn parameters
+BURN_SAFETY_MARGIN      = 22.0 m
+BURN_MIN_VY             = 3.0 m/s
+BURN_THRESHOLD_FRACTION = 0.70
+
+# Final approach
+FINAL_TARGET_VY = 4.0 m/s
+FINAL_ENGINE_KP = 0.8   # Throttle-equivalent gain for vy error in Phase 3

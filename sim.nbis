@@ -4,42 +4,7 @@ import math
 import graphics
 import time
 from math import roundn
-
-DRY_MASS = 22200.0 kg # (Stage 1 empty)
-INITIAL_FUEL = 6000.0 kg  # (Fuel remaining for landing burn)
-ROCKET_HEIGHT = 47.0 m
-ROCKET_RADIUS = 1.83 m
-ENGINE_THRUST = 845000.0 N  # (1x Merlin 1D Engine, throttled approx 100%)
-RCS_TORQUE = 600000.0 N*m  # (Cold gas thrusters + grid fins approx)
-ISP = 282.0 s  # Specific Impulse at sea level
-FUEL_DENSITY = 0.81 kg/L # Kerosine
-
-# Environment
-GRAVITY = 9.81 m/s^2
-AIR_DENSITY = 1.225 kg/m^3 # (Sea level)
-DRAG_COEFF_BASE = 1.5  # Drag coefficient falling engine-first
-DRAG_COEFF_SIDE = 2.1  # Drag coefficient falling sideways
-
-# Game Settings
-FPS = 60
-DT = 1.0 / FPS -> s # Physics time step
-SCALE = 0.4m
-INACTIVITY_COOLDOWN = 10 s # Time before resetting to title screen after no input
-INVERT = false
-AUTOZOOM = true
-
-# Screen dimensions in pixels and meters
-SCREEN_WIDTH = 980
-SCREEN_HEIGHT = 980
-SCREEN_WIDTH_M = SCREEN_WIDTH * SCALE
-SCREEN_HEIGHT_M = SCREEN_HEIGHT * SCALE
-PLATFORM_WIDTH = 60.0 m
-
-# Landing Constraints
-MAX_LANDING_SPEED_Y = 12.0 m/s
-MAX_LANDING_SPEED_X = 5.0 m/s
-MAX_LANDING_ANGLE = 10.0°
-MAX_ROTATION_SPEED = 10.0°/s
+from consts import *
 
 # Status
 started = false
@@ -56,6 +21,7 @@ crash_time = 0.0 s
 # More params
 wind_time = 0.0 s
 wind_speed = 0.0 m/s
+ctrl_mode = false
 
 # Rocket State & Controls
 struct Rocket {
@@ -210,7 +176,7 @@ score_landing!() = {
     time_score = math.max(0.0, 1.0 - (wind_time / 40s))
     v_speed_score = math.max(0.0, 1.0 - (math.abs(rckt.vy) / MAX_LANDING_SPEED_Y / 1.3 -> 1))
     h_speed_score = math.max(0.0, 1.0 - (math.abs(rckt.vx) / MAX_LANDING_SPEED_X / 1.3 -> 1))
-    angle_score = math.max(0.0, 1.0 - (math.abs(rckt.angle -> °) / MAX_LANDING_ANGLE * 200 -> 1)) 
+    angle_score = math.max(0.0, 1.0 - (math.abs(rckt.angle -> °) / MAX_LANDING_ANGLE * 200 -> 1))
     omega_score = math.max(0.0, 1.0 - (math.abs(rckt.omega) / MAX_ROTATION_SPEED * 250 -> 1))
     fuel_score = (rckt.fuel / INITIAL_FUEL -> 1) * 2.25
     pos_score = math.max(0.0, 1.0 - (rckt.x / 30 -> 1))
@@ -220,6 +186,92 @@ score_landing!() = {
     score = math.round(rest * 10)
     landing_bonus = math.round(landing * 10)
 }
+
+
+ctrl!() = {
+    global rckt, platform
+    if rckt.fuel <= 0 kg then {
+        rckt.engine_on = false
+        rckt.rcs_left = false
+        rckt.rcs_right = false
+        return;
+    }
+    rckt.mass = DRY_MASS + rckt.fuel
+
+    bx = rckt.x - math.sin(rckt.angle) * (ROCKET_HEIGHT / 2)
+    by = rckt.y + math.cos(rckt.angle) * (ROCKET_HEIGHT / 2)
+    alt_above_pad = math.max(0.0 m, platform.y - by)
+    pad_centre = platform.x + platform.w / 2
+    x_error = rckt.x - pad_centre # positive = rocket is right of pad
+
+    # Net deceleration available from engine
+    net_decel = (ENGINE_THRUST / rckt.mass) - GRAVITY
+    if net_decel < 0.5 m/s^2 then { net_decel = 0.5 m/s^2 }
+
+    h_penalty = math.abs(rckt.vx) * 1.5 -> m
+    x_penalty = math.abs(x_error) * 0.08 -> m
+    stopping_dist = (rckt.vy^2) / (2.0 * net_decel) + BURN_SAFETY_MARGIN + h_penalty + x_penalty
+
+    # Determine phase
+    in_phase3 = alt_above_pad < PHASE_FINAL_ALT
+    in_phase2 = (not in_phase3) and (
+        alt_above_pad < PHASE_BURN_ALT
+        or (rckt.vy > BURN_MIN_VY and stopping_dist >= alt_above_pad and rckt.vy > MAX_LANDING_SPEED_Y * BURN_THRESHOLD_FRACTION)
+    )
+    in_phase1 = (not in_phase2) and (not in_phase3)
+    rcs_deadband = 0.0
+    lateral_target = 0.0 rad
+    max_lean = 0.0 rad
+
+    # Target angle calculation
+    if in_phase3 then {
+        lateral_target = -(LATERAL_KP * 0.5 * x_error + LATERAL_KD * 0.6 * rckt.vx) -> rad
+        max_lean = AUTOPILOT_MAX_LEAN_FINAL -> rad
+        rcs_deadband = RCS_DEADBAND_FINAL
+    } else if in_phase2 then {
+        lateral_target = -(LATERAL_KP * x_error + LATERAL_KD * rckt.vx) -> rad
+        max_lean = AUTOPILOT_MAX_LEAN_BURN -> rad
+        rcs_deadband = RCS_DEADBAND_BURN
+    } else {
+        lateral_target = -(LATERAL_KP * x_error + LATERAL_KD * rckt.vx) -> rad
+        max_lean = AUTOPILOT_MAX_LEAN_COARSE -> rad
+        rcs_deadband = RCS_DEADBAND_COARSE
+    }
+
+    target_angle = math.max(-max_lean, math.min(max_lean, lateral_target))
+
+
+    # Attitude PD controller
+    omega_damp_gain = if in_phase3 then 4.0 s*rad^(-1)
+                      else if in_phase2 then 2.8 s*rad^(-1)
+                      else ATTITUDE_KD
+    angle_error = rckt.angle - target_angle
+    pd_signal = ATTITUDE_KP * angle_error + omega_damp_gain * rckt.omega
+    rckt.rcs_left = pd_signal > rcs_deadband
+    rckt.rcs_right = pd_signal < -rcs_deadband
+
+    # Engine control per phase
+    if in_phase3 then {
+        vy_excess = rckt.vy - FINAL_TARGET_VY
+        stopping_now = (rckt.vy^2 - FINAL_TARGET_VY^2) / (2.0 * net_decel)
+        must_burn = stopping_now >= alt_above_pad and rckt.vy > FINAL_TARGET_VY
+        need_authority = math.abs(rckt.omega) > 0.06 rad/s or math.abs(angle_error) > 0.05 rad
+        rckt.engine_on = must_burn or (vy_excess > 1.2 m/s) or need_authority
+    } else if in_phase2 then {
+        rckt.engine_on = rckt.vy > BURN_MIN_VY
+    } else {
+        falling = rckt.vy > BURN_MIN_VY
+        need_to_slow = rckt.vy > MAX_LANDING_SPEED_Y * BURN_THRESHOLD_FRACTION
+        burn_now = stopping_dist >= alt_above_pad
+        rckt.engine_on = falling and need_to_slow and burn_now
+    }
+
+    # If engine can't beat gravity, fire continuously
+    if (ENGINE_THRUST / rckt.mass) <= GRAVITY + 0.5 m/s^2 then {
+        rckt.engine_on = rckt.vy > BURN_MIN_VY
+    }
+}
+
 
 # ==============================
 
@@ -348,7 +400,7 @@ draw_telemetry!(alt: Length) = {
     }
 
     # Crash indicator
-    if math.abs(rckt.y) < SCREEN_HEIGHT_M/4 and 
+    if math.abs(rckt.y) < SCREEN_HEIGHT_M/4 and
         (rckt.vy > MAX_LANDING_SPEED_Y
         or math.abs(rckt.vx) > MAX_LANDING_SPEED_X
         or math.abs(rckt.angle) >MAX_LANDING_ANGLE
@@ -356,18 +408,20 @@ draw_telemetry!(alt: Length) = {
     then {
         warning_x = SCREEN_WIDTH / 2
         warning_y = SCREEN_HEIGHT / 2
-        tri_w = 35.0  
-        tri_h = 55.0 
-        border = 7.0 
+        tri_w = 35.0
+        tri_h = 55.0
+        border = 7.0
         c_warn = "#d61818"
 
-        # Triangle
-        graphics.polygon([warning_x, warning_y, warning_x - tri_w, warning_y + tri_h, warning_x + tri_w, warning_y + tri_h], color=c_warn)
-        graphics.polygon([warning_x, warning_y + (border * 1.5), warning_x - (tri_w - border*1.5), warning_y + tri_h - border, warning_x + (tri_w - border*1.5), warning_y + tri_h - border], color="#ffffff")
+        if not ctrl_mode then {
+            # Triangle
+            graphics.polygon([warning_x, warning_y, warning_x - tri_w, warning_y + tri_h, warning_x + tri_w, warning_y + tri_h], color=c_warn)
+            graphics.polygon([warning_x, warning_y + (border * 1.5), warning_x - (tri_w - border*1.5), warning_y + tri_h - border, warning_x + (tri_w - border*1.5), warning_y + tri_h - border], color="#ffffff")
 
-        # !
-        graphics.rect(warning_x - 2, warning_y + 18, 4, 18, color=c_warn) 
-        graphics.rect(warning_x - 2, warning_y + 40, 4, 4, color=c_warn)  
+            # !
+            graphics.rect(warning_x - 2, warning_y + 18, 4, 18, color=c_warn)
+            graphics.rect(warning_x - 2, warning_y + 40, 4, 4, color=c_warn)
+        }
     }
 
     # Final Status Text Banner
@@ -447,14 +501,14 @@ draw_explosion!() = {
             dist = (t * 25.0 * (1.0 + math.sin((i * 2.7) -> rad))) -> m
             fx = rckt.x + math.cos(ang) * dist
             fy = rckt.y + math.sin(ang) * dist - (t * 20.0m)
-            
+
             fr = math.max(0.0, (1.5 - t) * (18.0 + math.sin((i * 3.2) -> rad)*8.0)) -> m
-            
+
             col = fire_colors[i]
             graphics.circle(fx, fy, fr, col + fade_alpha_hex(fire_alpha * 1s, 1s))
         }
     }
-    
+
     # Lingering Smoke Cloud
     smoke_alpha = math.max(0.0, 1.0 - t/1.5)
     if smoke_alpha > 0.01 then {
@@ -471,21 +525,21 @@ draw_explosion!() = {
     if deb_alpha > 0.01 then {
         for i in 0..26 do {
             # Bias upward scatter angles
-            ang = (i * 0.25 - 1.57 + math.sin((i * 2.0) -> rad)*0.8) -> rad 
+            ang = (i * 0.25 - 1.57 + math.sin((i * 2.0) -> rad)*0.8) -> rad
             speed = 30.0 + math.sin((i * 4.1) -> rad) * 25.0
             dx = math.cos(ang) * speed * t
-            dy = math.sin(ang) * speed * t + 0.5 * 9.81 * t * t 
-            
+            dy = math.sin(ang) * speed * t + 0.5 * 9.81 * t * t
+
             deb_x = rckt.x + (dx -> m)
             deb_y = rckt.y + (dy -> m)
-            
+
             # Floor stop
-            if deb_y > platform.y then { 
-                deb_y = platform.y 
+            if deb_y > platform.y then {
+                deb_y = platform.y
             }
-            
+
             size_deb = (1.5 + math.sin((t * 15.0 + i) -> rad) * 0.5) -> m
-            
+
             graphics.rect(deb_x, deb_y, size_deb, size_deb, "#111111" + fade_alpha_hex(deb_alpha * 1s, 1s))
         }
     }
@@ -494,14 +548,21 @@ draw_explosion!() = {
 # ==============================
 
 main!() = {
-    global rckt, particles, started, crashed, landed, idle_time, wind_time, wind_speed, last_time, actual_fps, fade_time, crash_time, score
+    global rckt, particles, started, crashed, landed, idle_time, wind_time, wind_speed, last_time, actual_fps, fade_time, crash_time, score, ctrl_mode
 
     while not graphics.quit_requested() do {
-        # Process Input
-        rckt.engine_on = graphics.key_pressed("Up")
-        rckt.rcs_left = if INVERT then graphics.key_pressed("Right") else graphics.key_pressed("Left") 
-        rckt.rcs_right = if INVERT then graphics.key_pressed("Left") else graphics.key_pressed("Right") 
-        action_received = rckt.engine_on or rckt.rcs_left or rckt.rcs_right or graphics.key_pressed("Space")
+        if graphics.key_pressed("A") then {
+            ctrl_mode = not ctrl_mode
+            while graphics.key_pressed("A") do {}
+        }
+
+        if ctrl_mode and not landed and not crashed then {
+            ctrl()
+        } else {
+            rckt.engine_on = graphics.key_pressed("Up")
+            rckt.rcs_left  = if INVERT then graphics.key_pressed("Right") else graphics.key_pressed("Left")
+            rckt.rcs_right = if INVERT then graphics.key_pressed("Left")  else graphics.key_pressed("Right")
+        }
 
         if graphics.key_pressed("Space") then {
             if not started then {
@@ -513,10 +574,14 @@ main!() = {
             }
             while graphics.key_pressed("Space") do {}
         }
-        
-        if not started and action_received then {
+
+        manual_input = graphics.key_pressed("Up") or graphics.key_pressed("Left") or graphics.key_pressed("Right")
+        action_received = manual_input or graphics.key_pressed("Space") or (ctrl_mode and started and not crashed and not landed)
+
+        if not started and (manual_input or graphics.key_pressed("Space")) then {
             started = true
         }
+
         update_time(action_received)
         # Reset to title screen after inactivity cooldown
         if started and idle_time > INACTIVITY_COOLDOWN then {
@@ -577,12 +642,12 @@ main!() = {
         # ==============================
         if AUTOZOOM then {
             dist = math.sqrt(rckt.x^2 + (platform.y - rckt.y)^2) -> m
-            view_height = math.max(240.0, math.min(SCREEN_HEIGHT_M, dist + 150m)) 
+            view_height = math.max(240.0, math.min(SCREEN_HEIGHT_M, dist + 150m))
             graphics.set_scale(view_height, SCREEN_HEIGHT)
         } else {
             graphics.set_scale(SCALE)
         }
-        shake = if rckt.engine_on then random.uniform(-1, 1) else 
+        shake = if rckt.engine_on then random.uniform(-1, 1) else
                 if crashed and crash_time < 1s then random.uniform(-7, 7) else 0
         graphics.set_origin(SCREEN_WIDTH / 2 + shake, SCREEN_HEIGHT + shake)
 
@@ -619,7 +684,7 @@ main!() = {
         graphics.line(cx - 6m, cy - 1.5m, cx + 6m, cy + 1.5m, thickness=3.0, color="#ffffff")
         graphics.line(cx - 6m, cy + 1.5m, cx + 6m, cy - 1.5m, thickness=3.0, color="#ffffff")
 
-      
+
         # Rocket
         alt = math.max(0.0, platform.y - by) -> m
 
@@ -706,7 +771,7 @@ main!() = {
             }
 
             # Engine Flame & Particles
-            if rckt.engine_on and rckt.fuel > 0 then {
+            if rckt.engine_on and rckt.fuel > 0 and not landed then {
                 flame_h = random.uniform(17.0, 32.0) -> m
                 flicker_w = random.uniform(0.8, 1.1)
 
