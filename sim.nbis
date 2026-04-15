@@ -130,7 +130,7 @@ reset!() = {
 
 # ==============================
 update_physics!() = {
-    global rckt, crashed, landed, wind_speed
+    global rckt, crashed, landed, wind_speed, DT
 
     if crashed or landed then {return;}
 
@@ -224,7 +224,7 @@ score_landing!() = {
 # ==============================
 
 update_particles!() = {
-    global rckt, particles
+    global rckt, particles, DT
     new_particles: List[{Particle}] = []
     for p in particles do {
         # Apply drag to simulate air resistance slowing the particles
@@ -494,7 +494,7 @@ draw_explosion!() = {
 # ==============================
 
 main!() = {
-    global rckt, particles, started, crashed, landed, idle_time, wind_time, wind_speed, last_time, actual_fps, fade_time, crash_time, score
+    global rckt, particles, started, crashed, landed, idle_time, wind_time, wind_speed, last_time, actual_fps, fade_time, crash_time, score, FPS, DT
 
     while not graphics.quit_requested() do {
         # Process Input
@@ -502,6 +502,9 @@ main!() = {
         rckt.rcs_left = if INVERT then graphics.key_pressed("Right") else graphics.key_pressed("Left") 
         rckt.rcs_right = if INVERT then graphics.key_pressed("Left") else graphics.key_pressed("Right") 
         action_received = rckt.engine_on or rckt.rcs_left or rckt.rcs_right or graphics.key_pressed("Space")
+
+        FPS = if graphics.key_pressed("0") then 5 else if graphics.key_pressed("1") then 10 else if graphics.key_pressed("2") then 20 else if graphics.key_pressed("3") then 30 else if graphics.key_pressed("4") then 40 else if graphics.key_pressed("5") then 50 else if graphics.key_pressed("6") then 60 else FPS
+        DT = 1.0 / FPS -> s
 
         if graphics.key_pressed("Space") then {
             if not started then {
