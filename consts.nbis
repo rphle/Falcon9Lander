@@ -16,8 +16,6 @@ DRAG_COEFF_BASE = 1.5  # Drag coefficient falling engine-first
 DRAG_COEFF_SIDE = 2.1  # Drag coefficient falling sideways
 
 # Game Settings
-FPS = 5
-DT = 1.0 / FPS -> s # Physics time step
 SCALE = 0.4m
 INACTIVITY_COOLDOWN = 10 s # Time before resetting to title screen after no input
 INVERT = false
