@@ -202,14 +202,14 @@ ctrl!() = {
     by = rckt.y + math.cos(rckt.angle) * (ROCKET_HEIGHT / 2)
     alt_above_pad = math.max(0.0 m, platform.y - by)
     pad_centre = platform.x + platform.w / 2
-    x_error = rckt.x - pad_centre # positive = rocket is right of pad
+    x_error = rckt.x - pad_centre
 
     # Net deceleration available from engine
     net_decel = (ENGINE_THRUST / rckt.mass) - GRAVITY
     if net_decel < 0.5 m/s^2 then { net_decel = 0.5 m/s^2 }
 
     h_penalty = math.abs(rckt.vx) * 1.5 -> m
-    x_penalty = math.abs(x_error) * 0.08 -> m
+    x_penalty = math.abs(x_error) * 0.5 -> m
     stopping_dist = (rckt.vy^2) / (2.0 * net_decel) + BURN_SAFETY_MARGIN + h_penalty + x_penalty
 
     # Determine phase
@@ -219,13 +219,14 @@ ctrl!() = {
         or (rckt.vy > BURN_MIN_VY and stopping_dist >= alt_above_pad and rckt.vy > MAX_LANDING_SPEED_Y * BURN_THRESHOLD_FRACTION)
     )
     in_phase1 = (not in_phase2) and (not in_phase3)
+
     rcs_deadband = 0.0
     lateral_target = 0.0 rad
     max_lean = 0.0 rad
 
     # Target angle calculation
     if in_phase3 then {
-        lateral_target = -(LATERAL_KP * 0.5 * x_error + LATERAL_KD * 0.6 * rckt.vx) -> rad
+        lateral_target = -(LATERAL_KP * 1.2 * x_error + LATERAL_KD * 0.8 * rckt.vx) -> rad
         max_lean = AUTOPILOT_MAX_LEAN_FINAL -> rad
         rcs_deadband = RCS_DEADBAND_FINAL
     } else if in_phase2 then {
@@ -239,7 +240,6 @@ ctrl!() = {
     }
 
     target_angle = math.max(-max_lean, math.min(max_lean, lateral_target))
-
 
     # Attitude PD controller
     omega_damp_gain = if in_phase3 then 4.0 s*rad^(-1)
@@ -255,10 +255,11 @@ ctrl!() = {
         vy_excess = rckt.vy - FINAL_TARGET_VY
         stopping_now = (rckt.vy^2 - FINAL_TARGET_VY^2) / (2.0 * net_decel)
         must_burn = stopping_now >= alt_above_pad and rckt.vy > FINAL_TARGET_VY
-        need_authority = math.abs(rckt.omega) > 0.06 rad/s or math.abs(angle_error) > 0.05 rad
-        rckt.engine_on = must_burn or (vy_excess > 1.2 m/s) or need_authority
+        far_off = math.abs(x_error) > 5.0 m
+        rckt.engine_on = must_burn or (vy_excess > 0.5 m/s) or (far_off and rckt.vy > 2.0 m/s)
     } else if in_phase2 then {
-        rckt.engine_on = rckt.vy > BURN_MIN_VY
+        burn_now = stopping_dist >= alt_above_pad
+        rckt.engine_on = burn_now and (rckt.vy > BURN_MIN_VY)
     } else {
         falling = rckt.vy > BURN_MIN_VY
         need_to_slow = rckt.vy > MAX_LANDING_SPEED_Y * BURN_THRESHOLD_FRACTION
