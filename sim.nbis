@@ -43,7 +43,7 @@ struct Rocket {
 
 # Platform params
 struct Platform {
-    x: Length = -PLATFORM_WIDTH / 2,
+    x: Length = (random.uniform(-SCREEN_WIDTH_M/2 + MARGIN, SCREEN_WIDTH_M/2 - PLATFORM_WIDTH - MARGIN) -> m),
     y: Length = -5.0 m,
     w: Length = PLATFORM_WIDTH,
     h: Length = 5.0 m,
@@ -78,9 +78,10 @@ graphics.set_title("Falcon 9 Landing Simulator")
 graphics.set_font("Fira Code")
 
 reset!() = {
-    global rckt, particles, started, crashed, landed, idle_time, wind_time, wind_speed, crash_time, score, landing_bonus
+    global rckt, platform, particles, started, crashed, landed, idle_time, wind_time, wind_speed, crash_time, score, landing_bonus
 
     rckt = Rocket()
+    platform = Platform()
     particles = []
     started = false
     crashed = false
@@ -171,7 +172,10 @@ update_physics!() = {
 }
 
 score_landing!() = {
-    global rckt, score, landing_bonus
+    global rckt, platform, score, landing_bonus
+
+    pad_centre = platform.x + platform.w / 2
+    dist_from_center = math.abs(rckt.x - pad_centre)
 
     time_score = math.max(0.0, 1.0 - (wind_time / 40s))
     v_speed_score = math.max(0.0, 1.0 - (math.abs(rckt.vy) / MAX_LANDING_SPEED_Y / 1.3 -> 1))
@@ -179,7 +183,8 @@ score_landing!() = {
     angle_score = math.max(0.0, 1.0 - (math.abs(rckt.angle -> °) / MAX_LANDING_ANGLE * 200 -> 1))
     omega_score = math.max(0.0, 1.0 - (math.abs(rckt.omega) / MAX_ROTATION_SPEED * 250 -> 1))
     fuel_score = (rckt.fuel / INITIAL_FUEL -> 1) * 2.25
-    pos_score = math.max(0.0, 1.0 - (rckt.x / 30 -> 1))
+
+    pos_score = math.max(0.0, 1.0 - (dist_from_center / (platform.w / 2) -> 1))
     landing = v_speed_score * 20 + h_speed_score * 20 + angle_score * 15 + pos_score * 10 + omega_score * 10
     rest = fuel_score * 15 + time_score * 20
 
@@ -277,7 +282,7 @@ ctrl!() = {
 # ==============================
 
 update_particles!() = {
-    global rckt, particles, DT
+    global rckt, platform, particles, DT
     new_particles: List[{Particle}] = []
     for p in particles do {
         # Apply drag to simulate air resistance slowing the particles
@@ -549,7 +554,7 @@ draw_explosion!() = {
 # ==============================
 
 main!() = {
-    global rckt, particles, started, crashed, landed, idle_time, wind_time, wind_speed, last_time, actual_fps, fade_time, crash_time, score, FPS, DT, ctrl_mode
+    global rckt, platform, particles, started, crashed, landed, idle_time, wind_time, wind_speed, last_time, actual_fps, fade_time, crash_time, score, FPS, DT, ctrl_mode
 
     while not graphics.quit_requested() and not graphics.key_pressed("q") do {
         if graphics.key_pressed("A") then {
@@ -649,27 +654,31 @@ main!() = {
         # ==============================
         # -- RENDERING --
         # ==============================
+        cam_focus_x = 0.0m
         if AUTOZOOM then {
-            dist = math.sqrt(rckt.x^2 + (platform.y - rckt.y)^2) -> m
+            dist = math.sqrt((rckt.x - (platform.x + platform.w / 2))^2 + (platform.y - rckt.y)^2) -> m
             view_height = math.max(240.0, math.min(SCREEN_HEIGHT_M, dist + 150m))
             graphics.set_scale(view_height, SCREEN_HEIGHT)
+            cam_focus_x = (rckt.x + platform.x + platform.w/2) / 2
         } else {
             graphics.set_scale(SCALE)
         }
+
+        origin_x = (SCREEN_WIDTH / 2) - (cam_focus_x -> 1)
         shake = if rckt.engine_on then random.uniform(-1, 1) else
                 if crashed and crash_time < 1s then random.uniform(-7, 7) else 0
-        graphics.set_origin(SCREEN_WIDTH / 2 + shake, SCREEN_HEIGHT + shake)
+        graphics.set_origin(origin_x + shake, SCREEN_HEIGHT + shake)
 
 
         # Sky
         band_h = SCREEN_HEIGHT_M / sky_colors.len()
         for i in 0..sky_colors.len() do {
-            graphics.rect(-SCREEN_WIDTH_M / 2, -SCREEN_HEIGHT_M + (i * band_h), SCREEN_WIDTH_M, band_h + 1m, sky_colors[i])
+            graphics.rect(-SCREEN_WIDTH_M / 2 - MARGIN, -SCREEN_HEIGHT_M + (i * band_h), SCREEN_WIDTH_M + MARGIN*2, band_h + 1m, sky_colors[i])
         }
 
         # Ocean
         ocean_base_y = platform.y + 2m
-        graphics.rect(-SCREEN_WIDTH_M / 2, ocean_base_y, SCREEN_WIDTH_M, SCREEN_HEIGHT_M, "#0f5e9c")
+        graphics.rect(-SCREEN_WIDTH_M / 2 - MARGIN, ocean_base_y, SCREEN_WIDTH_M + MARGIN*2, SCREEN_HEIGHT_M, "#0f5e9c")
 
         # Landing Pad
         deck_y = platform.y
