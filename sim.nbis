@@ -551,7 +551,7 @@ draw_explosion!() = {
 main!() = {
     global rckt, particles, started, crashed, landed, idle_time, wind_time, wind_speed, last_time, actual_fps, fade_time, crash_time, score, FPS, DT, ctrl_mode
 
-    while not graphics.quit_requested() do {
+    while not graphics.quit_requested() and not graphics.key_pressed("q") do {
         if graphics.key_pressed("A") then {
             ctrl_mode = not ctrl_mode
             while graphics.key_pressed("A") do {}
