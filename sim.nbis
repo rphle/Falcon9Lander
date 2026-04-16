@@ -6,7 +6,7 @@ import time
 from math import roundn
 from consts import *
 
-FPS = 5
+FPS = 60
 DT = 1.0 / FPS -> s # Physics time step
 
 # Status
@@ -567,8 +567,13 @@ main!() = {
             rckt.rcs_right = if INVERT then graphics.key_pressed("Left")  else graphics.key_pressed("Right")
         }
 
-        FPS = if graphics.key_pressed("0") then 5 else if graphics.key_pressed("1") then 10 else if graphics.key_pressed("2") then 20 else if graphics.key_pressed("3") then 30 else if graphics.key_pressed("4") then 40 else if graphics.key_pressed("5") then 50 else if graphics.key_pressed("6") then 60 else FPS
-        DT = 1.0 / FPS -> s
+        for i in 0..10 do {
+            fps = i -> Str
+            if graphics.key_pressed(fps) then {
+                FPS = if i != 0 then i*10 else 5
+                DT = 1.0 / FPS -> s
+            }
+        }
 
         if graphics.key_pressed("Space") then {
             if not started then {
