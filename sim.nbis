@@ -6,9 +6,6 @@ import time
 from math import roundn
 from consts import *
 
-FPS = 60
-DT = 1.0 / FPS -> s # Physics time step
-
 # Status
 started = false
 crashed = false
