@@ -7,7 +7,7 @@ from math import roundn
 from consts import *
 
 # Status
-started = false
+started = HEADLESS
 crashed = false
 landed = false
 score = 0
@@ -21,7 +21,7 @@ crash_time = 0.0 s
 # More params
 wind_time = 0.0 s
 wind_speed = 0.0 m/s
-ctrl_mode = false
+ctrl_mode = CLI_ARGS.contains("--autopilot")
 
 # Rocket State & Controls
 struct Rocket {
@@ -73,9 +73,11 @@ platform: {Platform} = Platform()
 particles: List[{Particle}] = []
 
 # Initialize graphics
-graphics.init(SCREEN_WIDTH, SCREEN_HEIGHT)
-graphics.set_title("Falcon 9 Landing Simulator")
-graphics.set_font("Fira Code")
+if not HEADLESS then {
+    graphics.init(SCREEN_WIDTH, SCREEN_HEIGHT)
+    graphics.set_title("Falcon 9 Landing Simulator")
+    graphics.set_font("Fira Code")
+}
 
 reset!() = {
     global rckt, platform, particles, started, crashed, landed, idle_time, wind_time, wind_speed, crash_time, score, landing_bonus
@@ -554,7 +556,7 @@ draw_explosion!() = {
 # ==============================
 
 main!() = {
-    global rckt, platform, particles, started, crashed, landed, idle_time, wind_time, wind_speed, last_time, actual_fps, fade_time, crash_time, score, FPS, DT, ctrl_mode
+    global rckt, platform, particles, started, crashed, landed, idle_time, wind_time, wind_speed, last_time, actual_fps, fade_time, crash_time, score, FPS, DT, ctrl_mode, landing_bonus
 
     while not graphics.quit_requested() and not graphics.key_pressed("q") do {
         if graphics.key_pressed("A") then {
@@ -615,8 +617,27 @@ main!() = {
         bx = rckt.x - math.sin(rckt.angle) * (ROCKET_HEIGHT / 2)
         by = rckt.y + math.cos(rckt.angle) * (ROCKET_HEIGHT / 2)
 
-        # Boundary Check: Crash if falling off the sides of the world
-        if math.abs(rckt.x) > SCREEN_WIDTH_M / 2 + ROCKET_RADIUS then { crashed = true; }
+        # Camera and zoom control
+        cam_focus_x = 0.0m
+        scale = 1.0m
+        if AUTOZOOM then {
+            dist = math.sqrt((rckt.x - (platform.x + platform.w / 2))^2 + (platform.y - rckt.y)^2) -> m
+            view_height = math.max(240.0, math.min(SCREEN_HEIGHT_M, dist + 150m))
+            graphics.set_scale(view_height, SCREEN_HEIGHT)
+            scale = view_height/SCREEN_HEIGHT -> m
+            cam_focus_x = (rckt.x + platform.x + platform.w/2) / 2
+        } else {
+            graphics.set_scale(SCALE)
+            scale = SCALE
+        }
+
+        half_view_w = (SCREEN_WIDTH * scale) / 2
+        view_left  = cam_focus_x - half_view_w
+        view_right = cam_focus_x + half_view_w
+
+        if rckt.x < view_left - ROCKET_RADIUS or rckt.x > view_right + ROCKET_RADIUS then {
+            crashed = true;
+        }
 
         if not landed and not crashed then {
             if started then {
@@ -654,15 +675,8 @@ main!() = {
         # ==============================
         # -- RENDERING --
         # ==============================
-        cam_focus_x = 0.0m
-        if AUTOZOOM then {
-            dist = math.sqrt((rckt.x - (platform.x + platform.w / 2))^2 + (platform.y - rckt.y)^2) -> m
-            view_height = math.max(240.0, math.min(SCREEN_HEIGHT_M, dist + 150m))
-            graphics.set_scale(view_height, SCREEN_HEIGHT)
-            cam_focus_x = (rckt.x + platform.x + platform.w/2) / 2
-        } else {
-            graphics.set_scale(SCALE)
-        }
+
+        if not HEADLESS then {
 
         origin_x = (SCREEN_WIDTH / 2) - (cam_focus_x -> 1)
         shake = if rckt.engine_on then random.uniform(-1, 1) else
@@ -673,12 +687,12 @@ main!() = {
         # Sky
         band_h = SCREEN_HEIGHT_M / sky_colors.len()
         for i in 0..sky_colors.len() do {
-            graphics.rect(-SCREEN_WIDTH_M / 2 - MARGIN, -SCREEN_HEIGHT_M + (i * band_h), SCREEN_WIDTH_M + MARGIN*2, band_h + 1m, sky_colors[i])
+            graphics.rect(-SCREEN_WIDTH_M / 2 - MARGIN*4, -SCREEN_HEIGHT_M + (i * band_h), SCREEN_WIDTH_M + MARGIN*8, band_h + 1m, sky_colors[i])
         }
 
         # Ocean
         ocean_base_y = platform.y + 2m
-        graphics.rect(-SCREEN_WIDTH_M / 2 - MARGIN, ocean_base_y, SCREEN_WIDTH_M + MARGIN*2, SCREEN_HEIGHT_M, "#0f5e9c")
+        graphics.rect(-SCREEN_WIDTH_M / 2 - MARGIN*4, ocean_base_y, SCREEN_WIDTH_M + MARGIN*8, SCREEN_HEIGHT_M, "#0f5e9c")
 
         # Landing Pad
         deck_y = platform.y
@@ -830,8 +844,10 @@ main!() = {
             draw_explosion()
         }
 
-        if crash_time == 0.0 and crashed then graphics.play_sound("boom.wav")
-        if crash_time == 0.0 and landed then graphics.play_sound("win.wav")
+        if crash_time == 0.0s then {
+            if crashed then graphics.play_sound("boom.wav")
+            if landed then graphics.play_sound("win.wav")
+        }
 
         # Render Exhaust Particles
         for p in particles do {
@@ -849,6 +865,11 @@ main!() = {
         draw_title()
 
         graphics.blit()
+
+        } else if landed or crashed then {
+            echo("SCORE=" + (if crashed then "0" else (score + landing_bonus) -> Str))
+            break
+        }
     }
 }
 
