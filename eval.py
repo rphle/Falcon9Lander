@@ -8,32 +8,33 @@ from concurrent.futures import ProcessPoolExecutor, as_completed
 from tqdm import tqdm
 
 SIM_PATH = "./sim"
-NUM_RUNS = 500
+NUM_RUNS = 10000
+QUANTIZE = 3
 MAX_WORKERS = os.cpu_count()
 FPS = 10
 
 params = {
-    "ATTITUDE_KP": 3.5,
-    "ATTITUDE_KD": 2.5,
-    "LATERAL_KP": 0.025,
-    "LATERAL_KD": 0.085,
-    "MAX_LEAN_COARSE": 25,
-    "MAX_LEAN_BURN": 15,
-    "MAX_LEAN_FINAL": 10,
-    "PHASE_BURN_ALT": 180,
-    "PHASE_FINAL_ALT": 35,
-    "BURN_MIN_VY": 3,
-    "BURN_SAFETY_MARGIN": 4,
-    "BURN_THRESHOLD_FRACTION": 0.85,
-    "FINAL_TARGET_VY": 4,
-    "RCS_DEADBAND_COARSE": 0.08,
-    "RCS_DEADBAND_BURN": 0.04,
-    "RCS_DEADBAND_FINAL": 0.01,
+    "ATTITUDE_KP": 2.200390037976687,
+    "ATTITUDE_KD": 3.8210788642448072,
+    "LATERAL_KP": 0.003937509152103991,
+    "LATERAL_KD": 0.025660669600121835,
+    "MAX_LEAN_COARSE": 45,
+    "MAX_LEAN_BURN": 28.730191489666343,
+    "MAX_LEAN_FINAL": 6.029378989818157,
+    "PHASE_BURN_ALT": 100,
+    "PHASE_FINAL_ALT": 21.735436731202054,
+    "BURN_MIN_VY": 9.02989683134981,
+    "BURN_SAFETY_MARGIN": 15,
+    "BURN_THRESHOLD_FRACTION": 0.8060667716427831,
+    "FINAL_TARGET_VY": 1.416868006870908,
+    "RCS_DEADBAND_COARSE": 0.01,
+    "RCS_DEADBAND_BURN": 0.03538529657425334,
+    "RCS_DEADBAND_FINAL": 0.025287131747565406,
 }
 
 base_args = ["--fps", str(FPS), "--headless", "--autopilot"]
 for k, v in params.items():
-    base_args.extend([f"--{k.lower()}", str(v)])
+    base_args.extend([f"--{k.lower()}", str(round(v, QUANTIZE))])
 
 
 def run_sim(_):
@@ -67,6 +68,10 @@ def main():
         print(f"\nLanding accuracy: {landing_accuracy * 100:.2f}%")
         print(f"Average score: {average_score:.2f}")
         print(f"Max score: {max(scores)}")
+
+    print()
+    for k, v in params.items():
+        print(f"{k} = {round(v, QUANTIZE)}")
 
 
 if __name__ == "__main__":

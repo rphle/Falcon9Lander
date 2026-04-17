@@ -49,27 +49,27 @@ MAX_ROTATION_SPEED = 10.0°/s
 # =========================================
 
 # Drive rocket to target angle, damp spin
-ATTITUDE_KP = arg("attitude_kp", 3.5) -> rad^(-1)
-ATTITUDE_KD = arg("attitude_kd", 2.5) -> s*rad^(-1)
+ATTITUDE_KP = arg("attitude_kp", 2.2) -> rad^(-1)
+ATTITUDE_KD = arg("attitude_kd", 3.821) -> s*rad^(-1)
 
 # Lateral correction: desired lean = KP*x_error + KD*vx
-LATERAL_KP = arg("lateral_kp", 0.025) -> m^(-1)
-LATERAL_KD = arg("lateral_kd", 0.085) -> s*m^(-1)
+LATERAL_KP = arg("lateral_kp", 0.004) -> m^(-1)
+LATERAL_KD = arg("lateral_kd", 0.026) -> s*m^(-1)
 
 # Max lean angles per phase
-AUTOPILOT_MAX_LEAN_COARSE = arg("max_lean_coarse", 25.0) -> °
-AUTOPILOT_MAX_LEAN_BURN   = arg("max_lean_burn", 15.0) -> °
-AUTOPILOT_MAX_LEAN_FINAL  = arg("max_lean_final", 10.0) -> °
+AUTOPILOT_MAX_LEAN_COARSE = arg("max_lean_coarse", 45.0) -> °
+AUTOPILOT_MAX_LEAN_BURN   = arg("max_lean_burn", 28.73) -> °
+AUTOPILOT_MAX_LEAN_FINAL  = arg("max_lean_final", 6.029) -> °
 
 # Phase Thresholds
-PHASE_BURN_ALT = arg("phase_burn_alt", 180.0) -> m
-PHASE_FINAL_ALT = arg("phase_final_alt", 35.0) -> m
-BURN_MIN_VY = arg("burn_min_vy", 3.0) -> m/s
-BURN_SAFETY_MARGIN = arg("burn_safety_margin", 4.0) -> m
-BURN_THRESHOLD_FRACTION = arg("burn_threshold_fraction", 0.85)
-FINAL_TARGET_VY = arg("final_target_vy", 4.0) -> m/s
+PHASE_BURN_ALT = arg("phase_burn_alt", 100.0) -> m
+PHASE_FINAL_ALT = arg("phase_final_alt", 21.735) -> m
+BURN_MIN_VY = arg("burn_min_vy", 9.03) -> m/s
+BURN_SAFETY_MARGIN = arg("burn_safety_margin", 15.0) -> m
+BURN_THRESHOLD_FRACTION = arg("burn_threshold_fraction", 0.806)
+FINAL_TARGET_VY = arg("final_target_vy", 1.417) -> m/s
 
 # RCS Deadbands (lower = more precise)
-RCS_DEADBAND_COARSE = arg("rcs_deadband_coarse", 0.08)
-RCS_DEADBAND_BURN   = arg("rcs_deadband_burn", 0.04)
-RCS_DEADBAND_FINAL  = arg("rcs_deadband_final", 0.01)
+RCS_DEADBAND_COARSE = arg("rcs_deadband_coarse", 0.01)
+RCS_DEADBAND_BURN   = arg("rcs_deadband_burn", 0.035)
+RCS_DEADBAND_FINAL  = arg("rcs_deadband_final", 0.025)
