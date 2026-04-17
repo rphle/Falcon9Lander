@@ -179,16 +179,18 @@ score_landing!() = {
     pad_centre = platform.x + platform.w / 2
     dist_from_center = math.abs(rckt.x - pad_centre)
 
-    time_score = math.max(0.0, 1.0 - (wind_time / 40s))
-    v_speed_score = math.max(0.0, 1.0 - (math.abs(rckt.vy) / MAX_LANDING_SPEED_Y / 1.3 -> 1))
-    h_speed_score = math.max(0.0, 1.0 - (math.abs(rckt.vx) / MAX_LANDING_SPEED_X / 1.3 -> 1))
-    angle_score = math.max(0.0, 1.0 - (math.abs(rckt.angle -> °) / MAX_LANDING_ANGLE * 200 -> 1))
-    omega_score = math.max(0.0, 1.0 - (math.abs(rckt.omega) / MAX_ROTATION_SPEED * 250 -> 1))
-    fuel_score = (rckt.fuel / INITIAL_FUEL -> 1) * 2.25
+    time_score = math.max(0.0, 1.0 - (wind_time / 15s)^3)
 
-    pos_score = math.max(0.0, 1.0 - (dist_from_center / (platform.w / 2) -> 1))
-    landing = v_speed_score * 20 + h_speed_score * 20 + angle_score * 15 + pos_score * 10 + omega_score * 10
-    rest = fuel_score * 15 + time_score * 20
+    v_speed_score = math.max(0.0, 1.0 - (math.abs(rckt.vy) / MAX_LANDING_SPEED_Y -> 1))
+    h_speed_score = math.max(0.0, 1.0 - (math.abs(rckt.vx) / MAX_LANDING_SPEED_X -> 1))
+    angle_score   = math.max(0.0, 1.0 - (math.abs(rckt.angle) / MAX_LANDING_ANGLE -> 1))
+    omega_score   = math.max(0.0, 1.0 - (math.abs(rckt.omega) / MAX_ROTATION_SPEED -> 1))
+    pos_score     = math.max(0.0, 1.0 - (dist_from_center / (platform.w / 2) -> 1))
+
+    fuel_score    = rckt.fuel / INITIAL_FUEL
+
+    landing = (v_speed_score * 15) + (h_speed_score * 15) + (angle_score * 12) + (pos_score * 10) + (omega_score * 8)
+    rest = (time_score * 40) + (fuel_score * 10)
 
     score = math.round(rest * 10)
     landing_bonus = math.round(landing * 10)
