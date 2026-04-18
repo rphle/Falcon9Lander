@@ -33,7 +33,7 @@ params = {
     "RCS_DEADBAND_FINAL": 0.0081,
 }
 
-base_args = ["--autopilot"]
+base_args = ["--autopilot", "--headless"]
 for k, v in params.items():
     base_args.extend([f"--{k.lower()}", str(round(v, QUANTIZE))])
 
