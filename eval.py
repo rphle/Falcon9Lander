@@ -1,6 +1,7 @@
 """Simple template for evaluating autopilot parameter sets"""
 
 import os
+import random
 import re
 import subprocess
 from concurrent.futures import ProcessPoolExecutor, as_completed
@@ -11,28 +12,28 @@ SIM_PATH = "./sim"
 NUM_RUNS = 10000
 QUANTIZE = 3
 MAX_WORKERS = os.cpu_count()
-FPS = 10
+FPS = (5, 5)
 
 params = {
-    "ATTITUDE_KP": 2.200390037976687,
-    "ATTITUDE_KD": 3.8210788642448072,
-    "LATERAL_KP": 0.003937509152103991,
-    "LATERAL_KD": 0.025660669600121835,
-    "MAX_LEAN_COARSE": 45,
-    "MAX_LEAN_BURN": 28.730191489666343,
-    "MAX_LEAN_FINAL": 6.029378989818157,
-    "PHASE_BURN_ALT": 100,
-    "PHASE_FINAL_ALT": 21.735436731202054,
-    "BURN_MIN_VY": 9.02989683134981,
-    "BURN_SAFETY_MARGIN": 15,
-    "BURN_THRESHOLD_FRACTION": 0.8060667716427831,
-    "FINAL_TARGET_VY": 1.416868006870908,
-    "RCS_DEADBAND_COARSE": 0.01,
-    "RCS_DEADBAND_BURN": 0.03538529657425334,
-    "RCS_DEADBAND_FINAL": 0.025287131747565406,
+    "ATTITUDE_KP": 1.6731,
+    "ATTITUDE_KD": 1.5037,
+    "LATERAL_KP": 0.0017,
+    "LATERAL_KD": 0.0139,
+    "MAX_LEAN_COARSE": 24.3468,
+    "MAX_LEAN_BURN": 12.7555,
+    "MAX_LEAN_FINAL": 16.2987,
+    "PHASE_BURN_ALT": 212.3818,
+    "PHASE_FINAL_ALT": 10.0000,
+    "BURN_MIN_VY": 1.0070,
+    "BURN_SAFETY_MARGIN": 5.3543,
+    "BURN_THRESHOLD_FRAC": 0.5173,
+    "FINAL_TARGET_VY": 1.5661,
+    "RCS_DEADBAND_COARSE": 0.0540,
+    "RCS_DEADBAND_BURN": 0.0213,
+    "RCS_DEADBAND_FINAL": 0.0081,
 }
 
-base_args = ["--fps", str(FPS), "--headless", "--autopilot"]
+base_args = ["--autopilot"]
 for k, v in params.items():
     base_args.extend([f"--{k.lower()}", str(round(v, QUANTIZE))])
 
@@ -41,7 +42,7 @@ def run_sim(_):
     """Function to run a single simulation instance."""
     try:
         result = subprocess.run(
-            [SIM_PATH] + base_args,
+            [SIM_PATH] + base_args + ["--fps", str(random.randint(*FPS))],
             capture_output=True,
             text=True,
             encoding="utf-8",
