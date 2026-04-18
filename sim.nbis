@@ -189,8 +189,8 @@ score_landing!() = {
 
     fuel_score    = rckt.fuel / INITIAL_FUEL
 
-    landing = (v_speed_score * 15) + (h_speed_score * 15) + (angle_score * 12) + (pos_score * 10) + (omega_score * 8)
-    rest = (time_score * 40) + (fuel_score * 10)
+    landing = (v_speed_score * 7) + (h_speed_score * 7) + (angle_score * 6) + (pos_score * 5) + (omega_score * 5)
+    rest = (time_score * 50) + (fuel_score * 30)
 
     score = math.round(rest * 10)
     landing_bonus = math.round(landing * 10)

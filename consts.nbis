@@ -49,27 +49,27 @@ MAX_ROTATION_SPEED = 10.0°/s
 # =========================================
 
 # Drive rocket to target angle, damp spin
-ATTITUDE_KP = arg("attitude_kp", 1.673) -> rad^(-1)
-ATTITUDE_KD = arg("attitude_kd", 1.504) -> s*rad^(-1)
+ATTITUDE_KP = arg("attitude_kp", 2.412) -> rad^(-1)
+ATTITUDE_KD = arg("attitude_kd", 4.649) -> s*rad^(-1)
 
 # Lateral correction: desired lean = KP*x_error + KD*vx
-LATERAL_KP = arg("lateral_kp", 0.002) -> m^(-1)
-LATERAL_KD = arg("lateral_kd", 0.014) -> s*m^(-1)
+LATERAL_KP = arg("lateral_kp", 0.003) -> m^(-1)
+LATERAL_KD = arg("lateral_kd", 0.02) -> s*m^(-1)
 
 # Max lean angles per phase
-AUTOPILOT_MAX_LEAN_COARSE = arg("max_lean_coarse", 24.347) -> °
-AUTOPILOT_MAX_LEAN_BURN   = arg("max_lean_burn", 12.755) -> °
-AUTOPILOT_MAX_LEAN_FINAL  = arg("max_lean_final", 16.299) -> °
+AUTOPILOT_MAX_LEAN_COARSE = arg("max_lean_coarse", 59.54) -> °
+AUTOPILOT_MAX_LEAN_BURN   = arg("max_lean_burn", 25.216) -> °
+AUTOPILOT_MAX_LEAN_FINAL  = arg("max_lean_final", 27.686) -> °
 
 # Phase Thresholds
-PHASE_BURN_ALT = arg("phase_burn_alt", 212.382) -> m
-PHASE_FINAL_ALT = arg("phase_final_alt", 10.0) -> m
-BURN_MIN_VY = arg("burn_min_vy", 1.007) -> m/s
-BURN_SAFETY_MARGIN = arg("burn_safety_margin", 5.354) -> m
-BURN_THRESHOLD_FRACTION = arg("burn_threshold_fraction", 0.517)
-FINAL_TARGET_VY = arg("final_target_vy", 1.566) -> m/s
+PHASE_BURN_ALT = arg("phase_burn_alt", 145.1) -> m
+PHASE_FINAL_ALT = arg("phase_final_alt", 2.0) -> m
+BURN_MIN_VY = arg("burn_min_vy", 3.822) -> m/s
+BURN_SAFETY_MARGIN = arg("burn_safety_margin", 0.016) -> m
+BURN_THRESHOLD_FRACTION = arg("burn_threshold_fraction", 0.316)
+FINAL_TARGET_VY = arg("final_target_vy", 1.195) -> m/s
 
 # RCS Deadbands (lower = more precise)
-RCS_DEADBAND_COARSE = arg("rcs_deadband_coarse", 0.054)
-RCS_DEADBAND_BURN   = arg("rcs_deadband_burn", 0.021)
-RCS_DEADBAND_FINAL  = arg("rcs_deadband_final", 0.008)
+RCS_DEADBAND_COARSE = arg("rcs_deadband_coarse", 0.211)
+RCS_DEADBAND_BURN   = arg("rcs_deadband_burn", 0.044)
+RCS_DEADBAND_FINAL  = arg("rcs_deadband_final", 0.091)

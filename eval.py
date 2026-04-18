@@ -12,26 +12,55 @@ SIM_PATH = "./sim"
 NUM_RUNS = 10000
 QUANTIZE = 3
 MAX_WORKERS = os.cpu_count()
-FPS = (5, 5)
+FPS = (5, 30)
 
 params = {
-    "ATTITUDE_KP": 1.6731,
-    "ATTITUDE_KD": 1.5037,
-    "LATERAL_KP": 0.0017,
-    "LATERAL_KD": 0.0139,
-    "MAX_LEAN_COARSE": 24.3468,
-    "MAX_LEAN_BURN": 12.7555,
-    "MAX_LEAN_FINAL": 16.2987,
-    "PHASE_BURN_ALT": 212.3818,
-    "PHASE_FINAL_ALT": 10.0000,
-    "BURN_MIN_VY": 1.0070,
-    "BURN_SAFETY_MARGIN": 5.3543,
-    "BURN_THRESHOLD_FRAC": 0.5173,
-    "FINAL_TARGET_VY": 1.5661,
-    "RCS_DEADBAND_COARSE": 0.0540,
-    "RCS_DEADBAND_BURN": 0.0213,
-    "RCS_DEADBAND_FINAL": 0.0081,
+    "ATTITUDE_KP": 2.4115,
+    "ATTITUDE_KD": 4.6485,
+    "LATERAL_KP": 0.0032,
+    "LATERAL_KD": 0.02,
+    "MAX_LEAN_COARSE": 59.5399,
+    "MAX_LEAN_BURN": 25.2165,
+    "MAX_LEAN_FINAL": 27.6865,
+    "PHASE_BURN_ALT": 145.0998,
+    "PHASE_FINAL_ALT": 2.0,
+    "BURN_MIN_VY": 3.8216,
+    "BURN_SAFETY_MARGIN": 0.0161,
+    "BURN_THRESHOLD_FRAC": 0.3155,
+    "FINAL_TARGET_VY": 1.1952,
+    "RCS_DEADBAND_COARSE": 0.2109,
+    "RCS_DEADBAND_BURN": 0.0439,
+    "RCS_DEADBAND_FINAL": 0.0914,
 }
+
+
+template = """# Drive rocket to target angle, damp spin
+ATTITUDE_KP = arg("attitude_kp", {ATTITUDE_KP}) -> rad^(-1)
+ATTITUDE_KD = arg("attitude_kd", {ATTITUDE_KD}) -> s*rad^(-1)
+
+# Lateral correction: desired lean = KP*x_error + KD*vx
+LATERAL_KP = arg("lateral_kp", {LATERAL_KP}) -> m^(-1)
+LATERAL_KD = arg("lateral_kd", {LATERAL_KD}) -> s*m^(-1)
+
+# Max lean angles per phase
+AUTOPILOT_MAX_LEAN_COARSE = arg("max_lean_coarse", {MAX_LEAN_COARSE}) -> °
+AUTOPILOT_MAX_LEAN_BURN   = arg("max_lean_burn", {MAX_LEAN_BURN}) -> °
+AUTOPILOT_MAX_LEAN_FINAL  = arg("max_lean_final", {MAX_LEAN_FINAL}) -> °
+
+# Phase Thresholds
+PHASE_BURN_ALT = arg("phase_burn_alt", {PHASE_BURN_ALT}) -> m
+PHASE_FINAL_ALT = arg("phase_final_alt", {PHASE_FINAL_ALT}) -> m
+BURN_MIN_VY = arg("burn_min_vy", {BURN_MIN_VY}) -> m/s
+BURN_SAFETY_MARGIN = arg("burn_safety_margin", {BURN_SAFETY_MARGIN}) -> m
+BURN_THRESHOLD_FRACTION = arg("burn_threshold_fraction", {BURN_THRESHOLD_FRAC})
+FINAL_TARGET_VY = arg("final_target_vy", {FINAL_TARGET_VY}) -> m/s
+
+# RCS Deadbands (lower = more precise)
+RCS_DEADBAND_COARSE = arg("rcs_deadband_coarse", {RCS_DEADBAND_COARSE})
+RCS_DEADBAND_BURN   = arg("rcs_deadband_burn", {RCS_DEADBAND_BURN})
+RCS_DEADBAND_FINAL  = arg("rcs_deadband_final", {RCS_DEADBAND_FINAL})
+"""
+
 
 base_args = ["--autopilot", "--headless"]
 for k, v in params.items():
@@ -63,16 +92,15 @@ def main():
         for future in tqdm(as_completed(futures), total=NUM_RUNS, desc="Simulating"):
             scores.append(future.result())
 
+    print(template.format(**{k: round(v, QUANTIZE) for k, v in params.items()}))
+    print("========================")
     if scores:
         landing_accuracy = sum(1 for s in scores if s > 0) / len(scores)
         average_score = sum(scores) / len(scores)
         print(f"\nLanding accuracy: {landing_accuracy * 100:.2f}%")
         print(f"Average score: {average_score:.2f}")
         print(f"Max score: {max(scores)}")
-
-    print()
-    for k, v in params.items():
-        print(f"{k} = {round(v, QUANTIZE)}")
+        print(f"Min score: {min(s for s in scores if s > 0)}")
 
 
 if __name__ == "__main__":
