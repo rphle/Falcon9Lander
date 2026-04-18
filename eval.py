@@ -15,28 +15,32 @@ MAX_WORKERS = os.cpu_count()
 FPS = (5, 30)
 
 params = {
-    "ATTITUDE_KP": 2.4115,
-    "ATTITUDE_KD": 4.6485,
-    "LATERAL_KP": 0.0032,
-    "LATERAL_KD": 0.02,
-    "MAX_LEAN_COARSE": 59.5399,
-    "MAX_LEAN_BURN": 25.2165,
-    "MAX_LEAN_FINAL": 27.6865,
-    "PHASE_BURN_ALT": 145.0998,
-    "PHASE_FINAL_ALT": 2.0,
-    "BURN_MIN_VY": 3.8216,
-    "BURN_SAFETY_MARGIN": 0.0161,
-    "BURN_THRESHOLD_FRAC": 0.3155,
-    "FINAL_TARGET_VY": 1.1952,
-    "RCS_DEADBAND_COARSE": 0.2109,
-    "RCS_DEADBAND_BURN": 0.0439,
-    "RCS_DEADBAND_FINAL": 0.0914,
+    "ATTITUDE_KP": 2.78,
+    "ATTITUDE_KD": 5.5322,
+    "H_PENALTY": 1.67,
+    "X_PENALTY": 0.6362,
+    "LATERAL_KP": 0.0033,
+    "LATERAL_KD": 0.0202,
+    "MAX_LEAN_COARSE": 65.1921,
+    "MAX_LEAN_BURN": 23.4885,
+    "MAX_LEAN_FINAL": 17.4453,
+    "PHASE_BURN_ALT": 129.769,
+    "PHASE_FINAL_ALT": 1.003,
+    "BURN_MIN_VY": 4.0465,
+    "BURN_SAFETY_MARGIN": 0.1439,
+    "BURN_THRESHOLD_FRAC": 0.0441,
+    "FINAL_TARGET_VY": 0.8564,
+    "RCS_DEADBAND_COARSE": 0.1728,
+    "RCS_DEADBAND_BURN": 0.0555,
+    "RCS_DEADBAND_FINAL": 0.0959,
 }
 
 
 template = """# Drive rocket to target angle, damp spin
 ATTITUDE_KP = arg("attitude_kp", {ATTITUDE_KP}) -> rad^(-1)
 ATTITUDE_KD = arg("attitude_kd", {ATTITUDE_KD}) -> s*rad^(-1)
+H_PENALTY = arg("h_penalty", {H_PENALTY}) -> m
+X_PENALTY = arg("x_penalty", {X_PENALTY}) -> m
 
 # Lateral correction: desired lean = KP*x_error + KD*vx
 LATERAL_KP = arg("lateral_kp", {LATERAL_KP}) -> m^(-1)
