@@ -1,8 +1,10 @@
 # Ignore all
 *
 
-# Unignore all with nbis extension
+# Unignore
 !*.nbis
-!*.wav
+!assets
+!assets/*
 !.gitignore
+!README.md
 !eval.py

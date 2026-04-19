@@ -851,8 +851,8 @@ main!() = {
         }
 
         if crash_time == 0.0s then {
-            if crashed then graphics.play_sound("boom.wav")
-            if landed then graphics.play_sound("win.wav")
+            if crashed then graphics.play_sound("assets/boom.wav")
+            if landed then graphics.play_sound("assets/win.wav")
         }
 
         # Render Exhaust Particles
