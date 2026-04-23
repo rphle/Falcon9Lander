@@ -112,7 +112,7 @@ update_physics!() = {
     torque = 0.0 N*m
 
     # -- Gravity --
-    force_y = force_y + rckt.mass * GRAVITY
+    force_y += rckt.mass * GRAVITY
 
     # -- Aerodynamic Drag --
     v_air_x = rckt.vx - wind_speed
@@ -136,42 +136,42 @@ update_physics!() = {
 
         drag_force = 0.5 * AIR_DENSITY * (v_mag^2) * effective_area
 
-        force_x = force_x - drag_force * (v_air_x / v_mag)
-        force_y = force_y - drag_force * (v_air_y / v_mag)
+        force_x -= drag_force * (v_air_x / v_mag)
+        force_y -= drag_force * (v_air_y / v_mag)
     }
 
     # -- Engine Thrust --
     if rckt.engine_on and rckt.fuel > 0 then {
-        force_x = force_x + ENGINE_THRUST * math.sin(rckt.angle)
-        force_y = force_y + ENGINE_THRUST * -math.cos(rckt.angle)
+        force_x += ENGINE_THRUST * math.sin(rckt.angle)
+        force_y += ENGINE_THRUST * -math.cos(rckt.angle)
 
         mass_flow_rate = ENGINE_THRUST / (ISP * GRAVITY)
-        rckt.fuel = rckt.fuel - mass_flow_rate * DT
+        rckt.fuel -= mass_flow_rate * DT
         if rckt.fuel < 0 kg then {rckt.fuel = 0 kg}
     }
 
     # -- RCS (Reaction Control System / Grid Fins) --
     if rckt.rcs_left then {
-        torque = torque - RCS_TORQUE
+        torque -= RCS_TORQUE
     }
     if rckt.rcs_right then {
-        torque = torque + RCS_TORQUE
+        torque += RCS_TORQUE
     }
 
     damping_coeff = 10000.0 kg*m
-    torque = torque - rckt.omega * (v_mag * damping_coeff)
+    torque -= rckt.omega * (v_mag * damping_coeff)
 
     # Semi-Implicit Euler Integration
     accel_x = force_x / rckt.mass
     accel_y = force_y / rckt.mass
-    rckt.vx = rckt.vx + accel_x * DT
-    rckt.vy = rckt.vy + accel_y * DT
-    rckt.x = rckt.x + rckt.vx * DT
-    rckt.y = rckt.y + rckt.vy * DT
+    rckt.vx += accel_x * DT
+    rckt.vy += accel_y * DT
+    rckt.x += rckt.vx * DT
+    rckt.y += rckt.vy * DT
 
     alpha = torque / moi
-    rckt.omega = rckt.omega + alpha * DT
-    rckt.angle = rckt.angle + rckt.omega * DT
+    rckt.omega += alpha * DT
+    rckt.angle += rckt.omega * DT
 }
 
 score_landing!() = {
@@ -295,11 +295,11 @@ update_particles!() = {
     new_particles: List[{Particle}] = []
     for p in particles do {
         # Apply drag to simulate air resistance slowing the particles
-        p.vx = p.vx * (1.0 - 1.5 * (DT->1))
-        p.vy = p.vy * (1.0 - 1.5 * (DT->1))
+        p.vx *= (1.0 - 1.5 * (DT->1))
+        p.vy *= (1.0 - 1.5 * (DT->1))
 
         # Apply a slight gravity to smoke/exhaust
-        p.vy = p.vy + (GRAVITY * 0.1) * DT
+        p.vy += (GRAVITY * 0.1) * DT
 
         new_x = p.x + p.vx * DT
         new_y = p.y + p.vy * DT
@@ -319,9 +319,7 @@ update_particles!() = {
 
         p.x = new_x
         p.y = new_y
-        p.vx = p.vx
-        p.vy = p.vy
-        p.life = p.life - DT
+        p.life -= DT
 
         if p.life >= 0s then {
             new_particles.append(p)
@@ -340,13 +338,13 @@ update_time!(action_received: Bool) = {
     if action_received then {
         idle_time = 0.0 s
     } else {
-        idle_time = idle_time + real_dt
+        idle_time += real_dt
     }
     if fade_time > 0.0 s then {
         fade_time = math.max(0.0 s, fade_time - real_dt)
     }
     if crashed or landed then {
-        crash_time = crash_time + DT
+        crash_time += DT
     }
 }
 
@@ -612,7 +610,7 @@ main!() = {
         }
 
         # Update physics and game state
-        wind_time = wind_time + DT
+        wind_time += DT
         wind_speed = (
             math.sin(wind_time * 0.5) * 6.0 + math.sin(wind_time * 1.3) * 3.0
         ) -> 1 -> m/s
