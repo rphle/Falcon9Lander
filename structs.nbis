@@ -1,0 +1,40 @@
+from si import *
+import random
+from consts import *
+
+# Rocket State & Controls
+struct Rocket {
+    # State
+    x: Length = random.uniform(-140.0m, 140.0m),
+    y: Length = -450.0 m,
+    vx: Velocity = random.uniform(-35.0 m/s, 35.0 m/s),
+    vy: Velocity = random.uniform(30.0 m/s, 60.0 m/s),
+    angle: Angle = random.uniform(-0.4 rad, 0.4 rad),
+    omega: AngularVelocity = random.uniform(-0.2 rad/s, 0.2 rad/s),
+    fuel: Mass = INITIAL_FUEL,
+    mass: Mass = DRY_MASS + INITIAL_FUEL,
+
+    # Controls
+    engine_on: Bool = false,
+    rcs_left: Bool = false,
+    rcs_right: Bool = false,
+}
+
+# Platform params
+struct Platform {
+    x: Length = random.uniform(-SCREEN_WIDTH_M/2 + MARGIN, SCREEN_WIDTH_M/2 - PLATFORM_WIDTH - MARGIN),
+    y: Length = -5.0 m,
+    w: Length = PLATFORM_WIDTH,
+    h: Length = 5.0 m,
+}
+
+# Particles
+struct Particle {
+    x: Length,
+    y: Length,
+    vx: Velocity,
+    vy: Velocity,
+    life: Time,
+    max_life: Time,
+    color: Str
+}
