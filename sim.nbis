@@ -345,17 +345,17 @@ draw_telemetry!(alt: Length) = {
     graphics.rect(0, 0, 260, 208, "#050b14cc")
     graphics.rect(0, 0, 260 * fuel_ratio, 4, fuel_colors[color_idx])
 
-    angle_ = math.round(math.rad_to_deg(rckt.angle))
+    angle_ = math.round(math.rad_to_deg(rckt.angle) -> °)
     fuel_liters = rckt.fuel / FUEL_DENSITY -> 1
 
     metrics = [
         "ALTITUDE:      " + (roundn(alt) -> Str),
         "V-SPEED:       " + (roundn(-rckt.vy, 1) -> Str),
         "H-SPEED:       " + (roundn(rckt.vx, 1) -> Str),
-        "ANGLE:         " + (angle_ -> Str) + "°",
+        "ANGLE:         " + (angle_ -> Str),
         "FUEL:          " + (roundn(fuel_liters) -> Str) + " L",
         "WIND:          " + (roundn(wind_speed, 1) -> Str),
-        "FPS:           " + (math.round(actual_fps) -> Str),
+        "FPS:           " + (math.round(actual_fps) -> 1 -> Str),
         "SCORE:         " + (score -> Str),
         "LANDING BONUS: " + "+" + (landing_bonus -> Str)
     ]
