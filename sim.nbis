@@ -416,7 +416,7 @@ draw_telemetry!(alt: Length) = {
             graphics.text(banner_x + offset, banner_y + offset, "MISSION FAILED", size=36, color="#ff3333")
         }
         score_text = if landed then " — SCORE: " + ((score + landing_bonus) -> Str) else ""
-        graphics.text(banner_x + offset, banner_y + 45 + offset, "PRESS SPACE TO RESTART" + score_text, size=16, color="#aaaaaa")
+        graphics.text(banner_x + offset, banner_y + 45 + offset, "PRESS SPACE OR (4) TO RESTART" + score_text, size=16, color="#aaaaaa")
     }
 }
 
@@ -440,7 +440,7 @@ draw_title!() = {
         offset = 22
         graphics.rect(banner_x, banner_y, banner_w, banner_h, "#050b14" + title_alpha)
         graphics.text(banner_x + offset, banner_y + offset, "FALCON 9 LANDING SIMULATOR", size=36, color="#e0e0e0" + title_alpha)
-        graphics.text(banner_x + offset, banner_y + 45 + offset, "PRESS SPACE TO START", size=16, color="#aaaaaa" + title_alpha)
+        graphics.text(banner_x + offset, banner_y + 45 + offset, "PRESS SPACE OR (4) TO START", size=16, color="#aaaaaa" + title_alpha)
     }
     # Fade Overlay
     if fade_time > 0.0 s then {
@@ -527,18 +527,20 @@ draw_explosion!() = {
 main!() = {
     global rckt, platform, particles, started, crashed, landed, idle_time, wind_time, wind_speed, last_time, actual_fps, fade_time, crash_time, score, FPS, DT, ctrl_mode, landing_bonus
 
+    gamepad_throttle = graphics.gamepad_axis(2)
+
     while not graphics.quit_requested() and not graphics.key_pressed("q") do {
-        if graphics.key_pressed("A") then {
+        if graphics.key_pressed("A") or graphics.gamepad_button(4) then {
             ctrl_mode = not ctrl_mode
-            while graphics.key_pressed("A") do {}
+            while graphics.key_pressed("A") or graphics.gamepad_button(4) do {}
         }
 
         if ctrl_mode and not landed and not crashed then {
             ctrl()
         } else {
-            rckt.engine_on = graphics.key_pressed("Up")
-            rckt.rcs_left  = if INVERT then graphics.key_pressed("Right") else graphics.key_pressed("Left")
-            rckt.rcs_right = if INVERT then graphics.key_pressed("Left")  else graphics.key_pressed("Right")
+            rckt.engine_on = graphics.key_pressed("Up") or graphics.gamepad_button(2) or graphics.gamepad_axis(1) < -1000
+            rckt.rcs_left  = if INVERT then graphics.key_pressed("Right") else graphics.key_pressed("Left") or graphics.gamepad_axis(0) < -1000 or graphics.gamepad_button(6)
+            rckt.rcs_right = if INVERT then graphics.key_pressed("Left")  else graphics.key_pressed("Right") or graphics.gamepad_axis(0) > 1000 or graphics.gamepad_button(7)
         }
 
         for i in 0..10 do {
@@ -546,10 +548,18 @@ main!() = {
             if graphics.key_pressed(fps) then {
                 FPS = if i != 0 then i*10 else 5
                 DT = 1.0 / FPS -> s
+                break
             }
         }
+        if gamepad_throttle != graphics.gamepad_axis(2) then {
+            gamepad_throttle = graphics.gamepad_axis(2)
+            throttle = math.round(gamepad_throttle / 16_000) + 3 # 1-4
+            FPS = throttle * 15
+            DT = 1.0 / FPS -> s
+        }
 
-        if graphics.key_pressed("Space") then {
+        _space_pressed = graphics.key_pressed("Space") or graphics.gamepad_button(3)
+        if _space_pressed then {
             if not started then {
                 started = true
             } else {
@@ -557,13 +567,13 @@ main!() = {
                 started = true # skip title screen
                 fade_time = 0.8 s
             }
-            while graphics.key_pressed("Space") do {}
+            while graphics.key_pressed("Space") or graphics.gamepad_button(3) do {}
         }
 
-        manual_input = graphics.key_pressed("Up") or graphics.key_pressed("Left") or graphics.key_pressed("Right")
-        action_received = manual_input or graphics.key_pressed("Space") or (ctrl_mode and started and not crashed and not landed)
+        manual_input = rckt.engine_on or rckt.rcs_left or rckt.rcs_right
+        action_received = manual_input or _space_pressed or (ctrl_mode and started and not crashed and not landed)
 
-        if not started and (manual_input or graphics.key_pressed("Space")) then {
+        if not started and (manual_input or _space_pressed) then {
             started = true
         }
 
@@ -571,6 +581,7 @@ main!() = {
         # Reset to title screen after inactivity cooldown
         if started and idle_time > INACTIVITY_COOLDOWN then {
             reset()
+            ctrl_mode = false
         }
 
         # Update physics and game state
