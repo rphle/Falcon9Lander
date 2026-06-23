@@ -1,0 +1,92 @@
+from structs import Rocket, Platform
+from si import *
+from consts import *
+import math
+
+autopilot!(rckt: {Rocket}, platform: {Platform}) = {
+    if rckt.fuel <= 0 kg then {
+        rckt.engine_on = false
+        rckt.rcs_left = false
+        rckt.rcs_right = false
+        return;
+    }
+    rckt.mass = DRY_MASS + rckt.fuel
+
+    bx = rckt.x - math.sin(rckt.angle) * (ROCKET_HEIGHT / 2)
+    by = rckt.y + math.cos(rckt.angle) * (ROCKET_HEIGHT / 2)
+    alt_above_pad = math.max(0.0 m, platform.y - by)
+    pad_centre = platform.x + platform.w / 2
+    x_error = rckt.x - pad_centre
+
+    # Net deceleration available from engine
+    net_decel = (ENGINE_THRUST / rckt.mass) - GRAVITY
+    if net_decel < 0.5 m/s^2 then { net_decel = 0.5 m/s^2 }
+
+    h_penalty = math.abs(rckt.vx) * H_PENALTY -> 1 -> m
+    x_penalty = math.abs(x_error) * X_PENALTY -> 1 -> m
+    stopping_dist = (rckt.vy^2) / (2.0 * net_decel) + BURN_SAFETY_MARGIN + h_penalty + x_penalty
+
+    # Determine phase
+    in_phase3 = alt_above_pad < PHASE_FINAL_ALT
+    in_phase2 = (not in_phase3) and (
+        alt_above_pad < PHASE_BURN_ALT
+        or (rckt.vy > BURN_MIN_VY and stopping_dist >= alt_above_pad and rckt.vy > MAX_LANDING_SPEED_Y * BURN_THRESHOLD_FRACTION)
+    )
+    in_phase1 = (not in_phase2) and (not in_phase3)
+
+    rcs_deadband = 0.0
+    lateral_target = 0.0 rad
+    max_lean = 0.0 rad
+
+    # Target angle calculation
+    if in_phase3 then {
+        lateral_target = -(LATERAL_KP * 1.2 * x_error + LATERAL_KD * 0.8 * rckt.vx)
+        max_lean = AUTOPILOT_MAX_LEAN_FINAL
+        rcs_deadband = RCS_DEADBAND_FINAL
+    } else if in_phase2 then {
+        lateral_target = -(LATERAL_KP * x_error + LATERAL_KD * rckt.vx)
+        max_lean = AUTOPILOT_MAX_LEAN_BURN
+        rcs_deadband = RCS_DEADBAND_BURN
+    } else {
+        lateral_target = -(LATERAL_KP * x_error + LATERAL_KD * rckt.vx)
+        max_lean = AUTOPILOT_MAX_LEAN_COARSE
+        rcs_deadband = RCS_DEADBAND_COARSE
+    }
+
+    target_angle = math.max(-max_lean, math.min(max_lean, lateral_target))
+
+    # Attitude PD controller
+    omega_damp_gain = if in_phase3 then 4.0 s*rad^(-1)
+                      else if in_phase2 then 2.8 s*rad^(-1)
+                      else ATTITUDE_KD
+
+    raw_angle_error = rckt.angle - target_angle
+    # Normalize the error to [-pi, pi] so the AP takes the shortest path
+    angle_error = math.atan2(math.sin(raw_angle_error), math.cos(raw_angle_error))
+
+    pd_signal = ATTITUDE_KP * angle_error + omega_damp_gain * rckt.omega
+    rckt.rcs_left = pd_signal > rcs_deadband
+    rckt.rcs_right = pd_signal < -rcs_deadband
+
+    # Engine control per phase
+    if in_phase3 then {
+        vy_excess = rckt.vy - FINAL_TARGET_VY
+        stopping_now = (rckt.vy^2 - FINAL_TARGET_VY^2) / (2.0 * net_decel)
+        must_burn = stopping_now >= alt_above_pad and rckt.vy > FINAL_TARGET_VY
+        far_off = math.abs(x_error) > 5.0 m
+        rckt.engine_on = must_burn or (vy_excess > 0.5 m/s) or (far_off and rckt.vy > 2.0 m/s)
+    } else if in_phase2 then {
+        burn_now = stopping_dist >= alt_above_pad
+        rckt.engine_on = burn_now and (rckt.vy > BURN_MIN_VY)
+    } else {
+        falling = rckt.vy > BURN_MIN_VY
+        need_to_slow = rckt.vy > MAX_LANDING_SPEED_Y * BURN_THRESHOLD_FRACTION
+        burn_now = stopping_dist >= alt_above_pad
+        rckt.engine_on = falling and need_to_slow and burn_now
+    }
+
+    # If engine can't beat gravity, fire continuously
+    if (ENGINE_THRUST / rckt.mass) <= GRAVITY + 0.5 m/s^2 then {
+        rckt.engine_on = rckt.vy > BURN_MIN_VY
+    }
+}
