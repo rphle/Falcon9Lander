@@ -12,7 +12,7 @@ INITIAL_FUEL = 6000.0 kg  # (Fuel remaining for landing burn)
 ROCKET_HEIGHT = 47.0 m
 ROCKET_RADIUS = 1.83 m
 ENGINE_THRUST = 845000.0 N  # (1x Merlin 1D Engine, throttled approx 100%)
-RCS_TORQUE = 600000.0 N*m  # (Cold gas thrusters + grid fins approx)
+RCS_TORQUE = 1500000.0 N*m  # (Cold gas thrusters + grid fins approx)
 ISP = 282.0 s  # Specific Impulse at sea level
 FUEL_DENSITY = 0.81 kg/L # Kerosine
 
@@ -41,10 +41,10 @@ PLATFORM_WIDTH = 60.0 m
 MARGIN = 50.0m
 
 # Landing Constraints
-MAX_LANDING_SPEED_Y = 12.0 m/s
-MAX_LANDING_SPEED_X = 5.0 m/s
-MAX_LANDING_ANGLE = 10.0°
-MAX_ROTATION_SPEED = 10.0°/s
+MAX_LANDING_SPEED_Y = 15.0 m/s
+MAX_LANDING_SPEED_X = 7.0 m/s
+MAX_LANDING_ANGLE = 12.0°
+MAX_ROTATION_SPEED = 12.0°/s
 
 # =========================================
 

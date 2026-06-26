@@ -245,16 +245,177 @@ fade_alpha_hex!(t: Time, fade_dur: Time): Str = {
 }
 
 # ==============================
+# Shared rocket renderer.
+# ox, oy: world-space origin (metres) for the rocket centre.
+# angle:  rotation in radians.
+# engine_on, rcs_left, rcs_right: effect flags.
+# leg_ext: 0.0 = retracted, 1.0 = fully deployed.
+# scale_factor: multiplies all metric lengths (1.0 = normal game size).
+#               For the HUD preview set this to a small value like 0.15.
+draw_rocket!(ox: Length, oy: Length, angle: Angle,
+             engine_on: Bool, rcs_left: Bool, rcs_right: Bool,
+             leg_ext: Num, scale_factor: Num) = {
+
+    sf = scale_factor
+
+    w_r          = ROCKET_RADIUS   * sf
+    h_r          = ROCKET_HEIGHT / 2 * sf
+    body_bot_y   = (h_r - 6m  * sf)
+    skirt_bot_y  = (h_r - 1m  * sf)
+    nozzle_bot_y = (h_r + 2m  * sf)
+    is_h         = 5m * sf
+
+    # RCS Plumes
+    rcs_offset_y = -h_r + 2.5m * sf
+    if rcs_left then {
+        rcs_len = random.uniform(3.0 m, 6.0 m) * sf
+        rcs_pts = rotate_polygon(ox, oy, [w_r, rcs_offset_y, w_r+rcs_len, rcs_offset_y-2m * sf, w_r+(rcs_len*0.8), rcs_offset_y+1m * sf], angle)
+        graphics.polygon(rcs_pts, "#ffffffcc")
+    }
+    if rcs_right then {
+        rcs_len = random.uniform(3.0 m, 6.0 m) * sf
+        rcs_pts = rotate_polygon(ox, oy, [-w_r, rcs_offset_y, -w_r-rcs_len, rcs_offset_y-2m * sf, -w_r-(rcs_len*0.8), rcs_offset_y+1m * sf], angle)
+        graphics.polygon(rcs_pts, "#ffffffcc")
+    }
+
+    # Interstage (Top)
+    is_pts = rotate_polygon(ox, oy, [-w_r, -h_r, w_r, -h_r, w_r, -h_r + is_h, -w_r, -h_r + is_h], angle)
+    graphics.polygon(is_pts, "#151515")
+
+    # Grid Fins
+    for s in [-1, 1] do {
+        gf = rotate_polygon(ox, oy, [s*w_r, -h_r+1.2m * sf, s*(w_r+1.2m * sf), -h_r+1.8m * sf, s*(w_r+1.2m * sf), -h_r+3.8m * sf, s*w_r, -h_r+4.4m * sf], angle)
+        graphics.polygon(gf, "#252525")
+    }
+
+    # Main Body
+    steps = rocket_colors.len()
+    strip_w = (2.0 * w_r) / steps
+    for i in 0..steps do {
+        lx = -w_r + (i * strip_w)
+        rx = lx + strip_w
+        b_pts = rotate_polygon(ox, oy, [lx, -h_r + is_h, rx, -h_r + is_h, rx, body_bot_y, lx, body_bot_y], angle)
+        graphics.polygon(b_pts, rocket_colors[i])
+    }
+
+    # Nozzle & Engine Section
+    skirt_pts_dark  = rotate_polygon(ox, oy, [-w_r, body_bot_y, 0m, body_bot_y, 0m, skirt_bot_y, -w_r * 1.12, skirt_bot_y], angle)
+    skirt_pts_light = rotate_polygon(ox, oy, [0.0m, body_bot_y, w_r, body_bot_y, w_r * 1.12, skirt_bot_y, 0m, skirt_bot_y], angle)
+    graphics.polygon(skirt_pts_dark,  "#1a1a1a")
+    graphics.polygon(skirt_pts_light, "#2e2e2e")
+
+    nozzle_pts_dark  = rotate_polygon(ox, oy, [-w_r * 0.55, skirt_bot_y, 0m, skirt_bot_y, 0m, nozzle_bot_y, -w_r * 0.78, nozzle_bot_y], angle)
+    nozzle_pts_light = rotate_polygon(ox, oy, [0.0m, skirt_bot_y, w_r * 0.55, skirt_bot_y, w_r * 0.78, nozzle_bot_y, 0m, nozzle_bot_y], angle)
+    graphics.polygon(nozzle_pts_dark,  "#2a2a2a")
+    graphics.polygon(nozzle_pts_light, "#3d3d3d")
+
+    nozzle_inner = rotate_polygon(ox, oy, [-w_r * 0.42, nozzle_bot_y - 0.5m * sf, w_r * 0.42, nozzle_bot_y - 0.5m * sf, w_r * 0.52, nozzle_bot_y, -w_r * 0.52, nozzle_bot_y], angle)
+    graphics.polygon(nozzle_inner, "#111111")
+
+    # Landing Legs
+    if leg_ext > 0.0 then {
+        for side in [-1, 1] do {
+            root_x = side * w_r
+            root_y = body_bot_y + 1m * sf
+            tip_x  = side * (w_r + (8.5m * sf * leg_ext))
+            tip_y  = skirt_bot_y + (3.5m * sf * leg_ext)
+
+            leg_p = rotate_polygon(ox, oy, [root_x, root_y, tip_x, tip_y], angle)
+            graphics.line(leg_p[0], leg_p[1], leg_p[2], leg_p[3], thickness=3.5, color="#111111")
+
+            leg_a = rotate_polygon(ox, oy, [side * w_r, skirt_bot_y - 1m * sf, tip_x, tip_y], angle)
+            graphics.line(leg_a[0], leg_a[1], leg_a[2], leg_a[3], thickness=1.5, color="#333333")
+
+            pad = rotate_polygon(ox, oy, [tip_x - 1.2m * sf, tip_y, tip_x + 1.2m * sf, tip_y, tip_x + 1.0m * sf, tip_y + 0.4m * sf, tip_x - 1.0m * sf, tip_y + 0.4m * sf], angle)
+            graphics.polygon(pad, "#050505")
+        }
+    }
+
+    # Engine Flame
+    if engine_on then {
+        flame_h  = random.uniform(17.0 m, 32.0 m) * sf
+        flicker_w = random.uniform(0.8, 1.1)
+        f_out = rotate_polygon(ox, oy, [-w_r*flicker_w, h_r, w_r*flicker_w, h_r, 0m, h_r+flame_h], angle)
+        graphics.polygon(f_out, "#ff66005b")
+        f_mid = rotate_polygon(ox, oy, [-w_r*0.6, h_r, w_r*0.6, h_r, 0m, h_r+(flame_h*0.7)], angle)
+        graphics.polygon(f_mid, "#ffaa0080")
+        f_in  = rotate_polygon(ox, oy, [-w_r*0.3, h_r, w_r*0.3, h_r, 0m, h_r+(flame_h*0.4)], angle)
+        graphics.polygon(f_in,  "#ffffffa8")
+    }
+}
+
+# ==============================
+# Helper to render LCD-style bold numbers manually (not as text)
+draw_digit!(d: Num, cx: Num, cy: Num, w: Num, h: Num, col: Str) = {
+    t = math.min(w, h) * 0.25
+    if d == 1 then {
+        graphics.rect(cx - t/2, cy - h/2, t, h, col)
+        graphics.polygon([cx - t/2, cy - h/2, cx - t/2 - t, cy - h/2 + t, cx - t/2, cy - h/2 + t], col)
+    } else {
+        if d == 2 or d == 3 then graphics.rect(cx - w/2, cy - h/2, w, t, col) # top
+        if d == 2 or d == 3 or d == 4 then graphics.rect(cx + w/2 - t, cy - h/2, t, h/2 + t/2, col) # top-right
+        if d == 3 or d == 4 then graphics.rect(cx + w/2 - t, cy - t/2, t, h/2 + t/2, col) # bot-right
+        if d == 2 or d == 3 then graphics.rect(cx - w/2, cy + h/2 - t, w, t, col) # bot
+        if d == 2 then graphics.rect(cx - w/2, cy - t/2, t, h/2 + t/2, col) # bot-left
+        if d == 4 then graphics.rect(cx - w/2, cy - h/2, t, h/2 + t/2, col) # top-left
+        if d == 2 or d == 3 or d == 4 then graphics.rect(cx - w/2, cy - t/2, w, t, col) # mid
+    }
+}
+
+# ==============================
+# Key button with an arrow drawn as a filled triangle or manual digits.
+# direction: "up" | "down" | "left" | "right" | "" (no arrow, use label text)
+draw_key!(x: Num, y: Num, w: Num, h: Num, direction: Str, label: Str) = {
+    # shadow
+    graphics.rect(x+2, y+3, w, h, "#00000055")
+    # key body
+    graphics.rect(x, y, w, h, "#1e2a38")
+    # top highlight edge
+    graphics.rect(x, y, w, 2, "#3a5068")
+
+    mx = x + w / 2.0
+    my = y + h / 2.0
+    aw = w * 0.38   # half-width of arrow base
+    ah = h * 0.38   # height of arrow
+
+    if direction == "up" then graphics.polygon([mx, my - ah, mx - aw, my + ah*0.6, mx + aw, my + ah*0.6], "#c8d8e8")
+    if direction == "down" then graphics.polygon([mx, my + ah, mx - aw, my - ah*0.6, mx + aw, my - ah*0.6], "#c8d8e8")
+    if direction == "left" then graphics.polygon([mx - ah, my, mx + ah*0.6, my - aw, mx + ah*0.6, my + aw], "#c8d8e8")
+    if direction == "right" then graphics.polygon([mx + ah, my, mx - ah*0.6, my - aw, mx - ah*0.6, my + aw], "#c8d8e8")
+
+    if direction == "" then {
+        if label == "3" or label == "4" then {
+            draw_digit(label -> Int, mx, my, w * 0.35, h * 0.55, "#c8d8e8")
+        } else {
+            lx = x + w/2 - (label.len() * 5)
+            ly = y + h/2 - 8
+            graphics.text(lx, ly, label, size=15, color="#c8d8e8")
+        }
+    }
+}
+
+# ==============================
 
 draw_telemetry!(alt: Length) = {
-    global rckt, landed, crashed, wind_speed, actual_fps, score, landing_bonus
+    global rckt, landed, started, crashed, wind_speed, actual_fps, score, landing_bonus, auto_mode
 
-    # HUD (Telemetry)
+    if not started then return;
+
+    sw = SCREEN_WIDTH -> 1
+    sh = SCREEN_HEIGHT -> 1
+
+    # HUD panel: 22% of screen width, rows proportional to screen height
+    hud_w = sw * 0.29
+    hud_row_h = sh * 0.026
+    hud_rows = 9
+    hud_h = hud_row_h * hud_rows + 12.0
+    hud_font = math.max(10, (hud_row_h * 0.72) -> Int)
+
     fuel_ratio = rckt.fuel / INITIAL_FUEL
     color_idx = math.floor(fuel_ratio * 9.99)
 
-    graphics.rect(0, 0, 260, 208, "#050b14cc")
-    graphics.rect(0, 0, 260 * fuel_ratio, 4, fuel_colors[color_idx])
+    graphics.rect(0, 0, hud_w, hud_h, "#050b14cc")
+    graphics.rect(0, 0, hud_w * fuel_ratio, 4, fuel_colors[color_idx])
 
     angle_ = math.round(math.rad_to_deg(rckt.angle) -> °)
     fuel_liters = rckt.fuel / FUEL_DENSITY -> 1
@@ -274,7 +435,7 @@ draw_telemetry!(alt: Length) = {
     text_color = "#e0e0e0"
     text_danger = "#ff5555"
     text_good = "#55ff55"
-    hud_x = 10
+    hud_x = sw * 0.008
 
     for i in 0..metrics.len() do {
         color = text_color
@@ -283,8 +444,24 @@ draw_telemetry!(alt: Length) = {
         if i == 3 and math.abs(rckt.angle) > MAX_LANDING_ANGLE then {color = text_danger}
         if i == 8 then {color = text_good}
 
-        hud_y = 12.0 + (i * 20)
-        graphics.text(hud_x, hud_y, metrics[i], size=16, color=color)
+        hud_y = sh * 0.012 + (i * hud_row_h)
+        graphics.text(hud_x, hud_y, metrics[i], size=hud_font, color=color)
+    }
+
+    # -- Autopilot indicator badge --
+    ap_badge_w = hud_w
+    ap_badge_h = sh * 0.038
+    ap_badge_x = 0.0
+    ap_badge_y = hud_h
+    ap_font = math.max(10, (ap_badge_h * 0.52) -> Int)
+    if auto_mode then {
+        graphics.rect(ap_badge_x, ap_badge_y, ap_badge_w, ap_badge_h, "#00aa44")
+        graphics.rect(ap_badge_x, ap_badge_y, ap_badge_w, 2, "#00ff88")
+        graphics.text(ap_badge_x + hud_x, ap_badge_y + ap_badge_h * 0.2, "AUTOPILOT  ON", size=ap_font, color="#ccffdd")
+    } else {
+        graphics.rect(ap_badge_x, ap_badge_y, ap_badge_w, ap_badge_h, "#1a2230cc")
+        graphics.rect(ap_badge_x, ap_badge_y, ap_badge_w, 2, "#2a3a50")
+        graphics.text(ap_badge_x + hud_x, ap_badge_y + ap_badge_h * 0.2, "AUTOPILOT OFF", size=ap_font, color="#445566")
     }
 
     # Crash indicator
@@ -294,11 +471,11 @@ draw_telemetry!(alt: Length) = {
         or math.abs(rckt.angle) >MAX_LANDING_ANGLE
         or math.abs(rckt.omega) > MAX_ROTATION_SPEED)
     then {
-        warning_x = SCREEN_WIDTH / 2
-        warning_y = SCREEN_HEIGHT / 2
-        tri_w = 35.0
-        tri_h = 55.0
-        border = 7.0
+        warning_x = sw / 2
+        warning_y = sh / 2
+        tri_w = sw * 0.04
+        tri_h = sh * 0.08
+        border = sw * 0.009
         c_warn = "#d61818"
 
         if not auto_mode then {
@@ -307,57 +484,129 @@ draw_telemetry!(alt: Length) = {
             graphics.polygon([warning_x, warning_y + (border * 1.5), warning_x - (tri_w - border*1.5), warning_y + tri_h - border, warning_x + (tri_w - border*1.5), warning_y + tri_h - border], color="#ffffff")
 
             # !
-            graphics.rect(warning_x - 2, warning_y + 18, 4, 18, color=c_warn)
-            graphics.rect(warning_x - 2, warning_y + 40, 4, 4, color=c_warn)
+            graphics.rect(warning_x - border*0.28, warning_y + tri_h*0.33, border*0.56, tri_h*0.33, color=c_warn)
+            graphics.rect(warning_x - border*0.28, warning_y + tri_h*0.73, border*0.56, border*0.56, color=c_warn)
         }
     }
 
     # Final Status Text Banner
     if landed or crashed then {
-        banner_w = if landed then 450 else 350
-        banner_h = 110
-        banner_y = SCREEN_HEIGHT / 2 - (banner_h / 2)
-        banner_x = SCREEN_WIDTH / 2 - (banner_w / 2)
-        offset = 22
+        banner_w = sw * (if crashed then 0.5 else 1)
+        banner_h = sh * 0.16
+        banner_y = sh / 2 - (banner_h / 2)
+        banner_x = sw / 2 - (banner_w / 2)
+        offset = sw * 0.025
+        banner_font_big = math.max(16, (banner_h * 0.32) -> Int)
+        banner_font_sm  = math.max(10, (banner_h * 0.16) -> Int)
         graphics.rect(banner_x, banner_y, banner_w, banner_h, "#050b14cc")
 
         if landed then {
-            graphics.text(banner_x + offset, banner_y + offset, "LANDING SUCCESSFUL", size=36, color="#00ff66")
+            graphics.text(banner_x + offset, banner_y + offset, "LANDING SUCCESSFUL", size=banner_font_big, color="#00ff66")
         } else {
-            graphics.text(banner_x + offset, banner_y + offset, "MISSION FAILED", size=36, color="#ff3333")
+            graphics.text(banner_x + offset, banner_y + offset, "MISSION FAILED", size=banner_font_big, color="#ff3333")
         }
-        score_text = if landed then " — SCORE: " + ((score + landing_bonus) -> Str) else ""
-        graphics.text(banner_x + offset, banner_y + 45 + offset, "PRESS SPACE OR (4) TO RESTART" + score_text, size=16, color="#aaaaaa")
+        score_text = if landed then " - SCORE: " + ((score + landing_bonus) -> Str) else ""
+        graphics.text(banner_x + offset, banner_y + banner_h * 0.55, "PRESS SPACE OR (4) TO RESTART" + score_text, size=banner_font_sm, color="#aaaaaa")
     }
 }
 
 draw_title!() = {
-    global started, idle_time, wind_time, fade_time
+    global started, fade_time
 
-    # Title Screen
-    title_fade_in = 1.4 s
-    title_fade_out = 0.8 s
+    sw = SCREEN_WIDTH -> 1
+    sh = SCREEN_HEIGHT -> 1
 
-    title_alpha = if not started then
-        fade_alpha_hex(idle_time, title_fade_in)
-    else
-        fade_alpha_hex(math.max(0.0 s, title_fade_out - wind_time), title_fade_out)
+    if not started then {
+        cx = sw / 2.0
 
-    if title_alpha != "00" then {
-        banner_w = 620
-        banner_h = 110
-        banner_y = SCREEN_HEIGHT / 2 - (banner_h / 2)
-        banner_x = SCREEN_WIDTH / 2 - (banner_w / 2)
-        offset = 22
-        graphics.rect(banner_x, banner_y, banner_w, banner_h, "#050b14" + title_alpha)
-        graphics.text(banner_x + offset, banner_y + offset, "FALCON 9 LANDING SIMULATOR", size=36, color="#e0e0e0" + title_alpha)
-        graphics.text(banner_x + offset, banner_y + 45 + offset, "PRESS SPACE OR (4) TO START", size=16, color="#aaaaaa" + title_alpha)
+        # -- Title Banner --
+        wm_w = sw * 0.74
+        wm_h = sh * 0.14
+        wm_y = sh * 0.2
+        graphics.rect(cx - wm_w / 2.0, wm_y, wm_w, wm_h, "#050b1455")
+
+        title_font = math.max(14, (wm_h * 0.34) -> Int)
+        graphics.text(cx - wm_w * 0.45, wm_y + wm_h * 0.32, "ROCKET LANDING SIMULATOR", size=title_font, color="#e8edf2")
+
+        # -- Tutorial Cards --
+        card_gap = sw * 0.025
+        # side cards + 1.53x wider center card
+        card_w = (sw * 0.88 - 2.0 * card_gap) / 3.53
+        center_w = card_w * 1.53
+        card_y = wm_y + wm_h + sh * 0.06
+        card_h = sh * 0.5
+
+        total_w = card_w + card_gap + center_w + card_gap + card_w
+        left_x = cx - total_w / 2.0
+
+        cx1 = left_x + card_w / 2.0
+        cx2 = left_x + card_w + card_gap + center_w / 2.0
+        cx3 = left_x + card_w + card_gap + center_w + card_gap + card_w / 2.0
+
+        graphics.rect(cx1 - card_w / 2.0, card_y, card_w, card_h, "#050b1455")
+        graphics.rect(cx2 - center_w / 2.0, card_y, center_w, card_h, "#050b1455")
+        graphics.rect(cx3 - card_w / 2.0, card_y, card_w, card_h, "#050b1455")
+
+        header_font = math.max(12, (card_h * 0.07) -> Int)
+
+        # -- Text Headers --
+        graphics.text(cx1 - header_font * 1.7, card_y + card_h * 0.07, "THRUST", size=header_font, color="#e8edf2")
+        graphics.text(cx2 - header_font * 1.7, card_y + card_h * 0.07, "ROTATE", size=header_font, color="#e8edf2")
+        graphics.text(cx3 - header_font * 1.7, card_y + card_h * 0.07, "LAUNCH", size=header_font, color="#e8edf2")
+
+        # -- Rocket Previews --
+        preview_px = card_h / sh * 0.37
+        rocket_render_y = card_y + card_h * 0.44
+
+        # THRUST
+        graphics.set_scale(preview_px)
+        graphics.set_origin(cx1, rocket_render_y)
+        draw_rocket(0.0m, 0.0m, 0.0 rad, true, false, false, 1.0, 1.0)
+
+        # ROTATE
+	graphics.set_scale(preview_px * 1.2)
+        tilt = 0.28 rad
+        pair_off = center_w * 0.28
+        graphics.set_origin(cx2 - pair_off, rocket_render_y)
+        draw_rocket(0.0m, 0.0m, -tilt, false, true, false, 1.0, 1.0)
+        graphics.set_origin(cx2 + pair_off, rocket_render_y)
+        draw_rocket(0.0m, 0.0m, tilt, false, false, true, 1.0, 1.0)
+
+        # LAUNCH
+	graphics.set_scale(preview_px)
+        graphics.set_origin(cx3, rocket_render_y)
+        draw_rocket(0.0m, 0.0m, 0.0 rad, false, false, false, 1.0, 1.0)
+
+        graphics.set_scale(1)
+        graphics.set_origin(0, 0)
+
+        # -- Controls --
+        kw = card_w * 0.44
+        kh = card_h * 0.12
+        kgap = card_w * 0.08
+        keys_y = card_y + card_h * 0.8
+
+        x_left = -kw - kgap / 2.0
+        x_right = kgap / 2.0
+
+        # Card 1 Keys
+        draw_key(cx1 + x_left, keys_y, kw, kh, "up", "")
+        draw_key(cx1 + x_right, keys_y, kw, kh, "", "3")
+
+        # Card 2 Keys
+        draw_key(cx2 + x_left, keys_y, kw, kh, "left", "")
+        draw_key(cx2 + x_right, keys_y, kw, kh, "right", "")
+
+        # Card 3 Keys
+        draw_key(cx3 + x_left, keys_y, kw, kh, "", "SPACE")
+        draw_key(cx3 + x_right, keys_y, kw, kh, "", "4")
     }
+
     # Fade Overlay
     if fade_time > 0.0 s then {
         fade_alpha = fade_alpha_hex(fade_time, 0.8 s)
         if fade_alpha != "00" then {
-            graphics.rect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, "#000000" + fade_alpha)
+            graphics.rect(0, 0, sw, sh, "#000000" + fade_alpha)
         }
     }
 }
@@ -607,114 +856,20 @@ main!() = {
         graphics.line(cx - 6m, cy - 1.5m, cx + 6m, cy + 1.5m, thickness=3.0, color="#ffffff")
         graphics.line(cx - 6m, cy + 1.5m, cx + 6m, cy - 1.5m, thickness=3.0, color="#ffffff")
 
-
         # Rocket
         alt = math.max(0.0m, platform.y - by)
 
         if not crashed then {
-            w_r = ROCKET_RADIUS
-            h_r = ROCKET_HEIGHT / 2
-            body_bot_y = h_r - 6m
-            skirt_bot_y = h_r - 1m
-            nozzle_bot_y = h_r + 2m
+            leg_ext = if landed then 1.0 else if alt < 50.0 m then math.max(0.0, math.min(1.0, (50.0m - alt) / 40.0m)) else 0.0
+            draw_rocket(rckt.x, rckt.y, rckt.angle, rckt.engine_on and rckt.fuel > 0 and not landed, rckt.rcs_left, rckt.rcs_right, leg_ext, 1.0)
 
-            # RCS Plumes
-            rcs_offset_y = -h_r + 2.5m
-            if rckt.rcs_left then {
-                rcs_len = random.uniform(3.0 m, 6.0 m)
-                rcs_pts = rotate_polygon(rckt.x, rckt.y, [w_r, rcs_offset_y, w_r+rcs_len, rcs_offset_y-2m, w_r+(rcs_len*0.8), rcs_offset_y+1m], rckt.angle)
-                graphics.polygon(rcs_pts, "#ffffffcc")
-            }
-
-            if rckt.rcs_right then {
-                rcs_len = random.uniform(3.0 m, 6.0 m)
-                rcs_pts = rotate_polygon(rckt.x, rckt.y, [-w_r, rcs_offset_y, -w_r-rcs_len, rcs_offset_y-2m, -w_r-(rcs_len*0.8), rcs_offset_y+1m], rckt.angle)
-                graphics.polygon(rcs_pts, "#ffffffcc")
-            }
-
-            # Interstage (Top)
-            is_h = 5m # Length of the black interstage section
-            is_pts = rotate_polygon(rckt.x, rckt.y, [-w_r, -h_r, w_r, -h_r, w_r, -h_r + is_h, -w_r, -h_r + is_h], rckt.angle)
-            graphics.polygon(is_pts, "#151515")
-
-            # Grid Fins
-            for s in [-1, 1] do {
-                gf = rotate_polygon(rckt.x, rckt.y, [s*w_r, -h_r+1.2m, s*(w_r+1.2m), -h_r+1.8m, s*(w_r+1.2m), -h_r+3.8m, s*w_r, -h_r+4.4m], rckt.angle)
-                graphics.polygon(gf, "#252525")
-            }
-
-            # Main Body
-            steps = rocket_colors.len()
-            strip_w = (2.0 * w_r) / steps
-            for i in 0..steps do {
-                lx = -w_r + (i * strip_w)
-                rx = lx + strip_w
-                b_pts = rotate_polygon(rckt.x, rckt.y, [lx, -h_r + is_h, rx, -h_r + is_h, rx, body_bot_y, lx, body_bot_y], rckt.angle)
-                graphics.polygon(b_pts, rocket_colors[i])
-            }
-
-            # Nozzle & Engine Section
-            skirt_pts_dark = rotate_polygon(rckt.x, rckt.y, [-w_r, body_bot_y, 0m, body_bot_y, 0m, skirt_bot_y, -w_r * 1.12, skirt_bot_y], rckt.angle)
-            skirt_pts_light = rotate_polygon(rckt.x, rckt.y, [0.0m, body_bot_y, w_r, body_bot_y, w_r * 1.12, skirt_bot_y, 0m, skirt_bot_y], rckt.angle)
-            graphics.polygon(skirt_pts_dark, "#1a1a1a")
-            graphics.polygon(skirt_pts_light, "#2e2e2e")
-
-            nozzle_pts_dark = rotate_polygon(rckt.x, rckt.y, [-w_r * 0.55, skirt_bot_y, 0m, skirt_bot_y, 0m, nozzle_bot_y, -w_r * 0.78, nozzle_bot_y], rckt.angle)
-            nozzle_pts_light = rotate_polygon(rckt.x, rckt.y, [0.0m, skirt_bot_y, w_r * 0.55, skirt_bot_y, w_r * 0.78, nozzle_bot_y, 0m, nozzle_bot_y], rckt.angle)
-            graphics.polygon(nozzle_pts_dark, "#2a2a2a")
-            graphics.polygon(nozzle_pts_light, "#3d3d3d")
-
-            nozzle_inner = rotate_polygon(rckt.x, rckt.y, [-w_r * 0.42, nozzle_bot_y - 0.5m, w_r * 0.42, nozzle_bot_y - 0.5m, w_r * 0.52, nozzle_bot_y, -w_r * 0.52, nozzle_bot_y], rckt.angle)
-            graphics.polygon(nozzle_inner, "#111111")
-
-            # Landing Legs
-            if alt < 50.0 m or landed then {
-                leg_ext = if landed then 1.0 else (50.0m - alt) / 40.0m
-                leg_ext = math.max(0.0, math.min(1.0, leg_ext))
-
-                # Geometry math for both sides
-                for side in [-1, 1] do {
-                    root_x = side * w_r
-                    root_y = body_bot_y + 1m
-                    tip_x = side * (w_r + (8.5m * leg_ext))
-                    tip_y = skirt_bot_y + (3.5m * leg_ext)
-
-                    # Primary Strut
-                    leg_p = rotate_polygon(rckt.x, rckt.y, [root_x, root_y, tip_x, tip_y], rckt.angle)
-                    graphics.line(leg_p[0], leg_p[1], leg_p[2], leg_p[3], thickness=3.5, color="#111111")
-
-                    # Actuator Strut
-                    leg_a = rotate_polygon(rckt.x, rckt.y, [side * w_r, skirt_bot_y - 1m, tip_x, tip_y], rckt.angle)
-                    graphics.line(leg_a[0], leg_a[1], leg_a[2], leg_a[3], thickness=1.5, color="#333333")
-
-                    # Footpad
-                    pad = rotate_polygon(rckt.x, rckt.y, [tip_x - 1.2m, tip_y, tip_x + 1.2m, tip_y, tip_x + 1.0m, tip_y + 0.4m, tip_x - 1.0m, tip_y + 0.4m], rckt.angle)
-                    graphics.polygon(pad, "#050505")
-                }
-            }
-
-            # Engine Flame & Particles
+            # Spawn exhaust particles
             if rckt.engine_on and rckt.fuel > 0 and not landed then {
-                flame_h = random.uniform(17.0 m, 32.0 m)
-                flicker_w = random.uniform(0.8, 1.1)
-
-                f_out = rotate_polygon(rckt.x, rckt.y, [-w_r*flicker_w, h_r, w_r*flicker_w, h_r, 0m, h_r+flame_h], rckt.angle)
-                graphics.polygon(f_out, "#ff66005b")
-
-                f_mid = rotate_polygon(rckt.x, rckt.y, [-w_r*0.6, h_r, w_r*0.6, h_r, 0m, h_r+(flame_h*0.7)], rckt.angle)
-                graphics.polygon(f_mid, "#ffaa0080")
-
-                f_in = rotate_polygon(rckt.x, rckt.y, [-w_r*0.3, h_r, w_r*0.3, h_r, 0m, h_r+(flame_h*0.4)], rckt.angle)
-                graphics.polygon(f_in, "#ffffffa8")
-
-                # Spawn particles
                 for j in 0..18 do {
-                    # Spatially distribute across the nozzle's horizontal width
                     offset = random.uniform(-0.8 m, 0.8 m)
                     p_x = bx + math.cos(rckt.angle) * offset
                     p_y = by + math.sin(rckt.angle) * offset
 
-                    # Core particles are fast and straight; edge particles are slower and angled
                     core_factor = 1.0 - math.abs(offset) / 0.8m
                     spread = random.uniform(-0.35, 0.35) * (1.2 - core_factor)
                     exhaust_vel = random.uniform(30.0 m/s, 50.0 m/s) + core_factor * 30.0 m/s
